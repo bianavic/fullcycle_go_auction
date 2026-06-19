@@ -95,6 +95,49 @@ func (ar *AuctionRepository) closeAuction(auctionId string) *internal_error.Inte
 	return nil
 }
 
+// StartAuctionCloser inicia um monitor que varre o banco periodicamente em busca
+// de leilões vencidos ainda marcados como Active e os fecha em lote. Funciona como
+// rede de segurança para leilões cujo fechamento agendado foi perdido (por exemplo,
+// após um restart do processo). O monitor encerra quando o contexto é cancelado.
+func (ar *AuctionRepository) StartAuctionCloser(ctx context.Context) {
+	ticker := time.NewTicker(getCloserInterval())
+
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_ = ar.closeExpiredAuctions(ctx)
+			}
+		}
+	}()
+}
+
+// closeExpiredAuctions fecha todos os leilões Active cujo tempo já expirou
+// (timestamp + auctionInterval < agora). O filtro por status=Active mantém a
+// operação idempotente e segura quando concorre com o fechamento agendado.
+func (ar *AuctionRepository) closeExpiredAuctions(ctx context.Context) *internal_error.InternalError {
+	ar.auctionMutex.Lock()
+	defer ar.auctionMutex.Unlock()
+
+	expirationLimit := time.Now().Add(-ar.auctionInterval).Unix()
+
+	filter := bson.M{
+		"status":    auction_entity.Active,
+		"timestamp": bson.M{"$lt": expirationLimit},
+	}
+	update := bson.M{"$set": bson.M{"status": auction_entity.Completed}}
+
+	if _, err := ar.Collection.UpdateMany(ctx, filter, update); err != nil {
+		logger.Error("Error trying to close expired auctions", err)
+		return internal_error.NewInternalServerError("Error trying to close expired auctions")
+	}
+
+	return nil
+}
+
 // getAuctionInterval calcula a duração do leilão a partir da variável de
 // ambiente AUCTION_INTERVAL (ex.: "20s", "5m"). Caso a variável esteja ausente
 // ou seja inválida, assume 5 minutos como padrão.
@@ -103,6 +146,19 @@ func getAuctionInterval() time.Duration {
 	duration, err := time.ParseDuration(auctionInterval)
 	if err != nil {
 		return time.Minute * 5
+	}
+
+	return duration
+}
+
+// getCloserInterval define a frequência de varredura do monitor de fechamento,
+// a partir de AUCTION_CLOSER_INTERVAL. Default de 10 segundos quando a variável
+// está ausente ou é inválida.
+func getCloserInterval() time.Duration {
+	closerInterval := os.Getenv("AUCTION_CLOSER_INTERVAL")
+	duration, err := time.ParseDuration(closerInterval)
+	if err != nil {
+		return time.Second * 10
 	}
 
 	return duration
