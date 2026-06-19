@@ -5,8 +5,9 @@ import (
 	"fullcycle-auction_go/configuration/rest_err"
 	"fullcycle-auction_go/internal/infra/api/web/validation"
 	"fullcycle-auction_go/internal/usecase/auction_usecase"
-	"github.com/gin-gonic/gin"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 type AuctionController struct {
