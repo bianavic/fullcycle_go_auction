@@ -11,28 +11,147 @@
 - [Quick Start](#quick-start)
 - [API Documentation](#api-documentation)
 - [Running Tests](#running-tests)
-- [Screenshots](#screenshots)
 - [Service Management](#service-management)
 - [Requirements Coverage (FullCycle)](#requirements-coverage-fullcycle)
 - [License](#license)
 
 ## What the System Does
 
-### Technology Stack
+A REST API for online auctions. Users open auctions for products and place bids on the ones that are still
+open. The feature added by this challenge is **automatic auction closing**: an auction created with status
+`Active` is automatically moved to `Completed` once its configured duration elapses — no manual action and
+no external scheduler required.
 
-### Project Structure
+Closing is handled by two complementary mechanisms:
 
-### Prerequisites
+- **Scheduled close** — when an auction is created, a goroutine is scheduled to close it after
+  `AUCTION_INTERVAL`.
+- **Background monitor** — a single goroutine periodically sweeps the database and closes any `Active`
+  auction whose time has already elapsed. This is a safety net for auctions whose scheduled close was lost
+  (for example, after a process restart), since the database — not in-memory state — is the source of truth.
 
-## Quick Started
+Both paths update the auction with a filter on `status = Active`, which makes the operation idempotent and
+safe under concurrency.
+
+## Technology Stack
+
+- **Go** 1.26
+- **Gin** — HTTP web framework
+- **MongoDB** — persistence (official `mongo-driver`)
+- **Zap** — structured logging
+- **Docker / Docker Compose** — local environment
+- **Testcontainers for Go** — ephemeral MongoDB for integration tests
+
+## Project Structure
+
+```
+cmd/auction/            entrypoint (main.go) and .env
+configuration/          logger, MongoDB connection, REST error helpers
+internal/
+  entity/               domain entities (auction, bid, user)
+  infra/
+    database/           MongoDB repositories (auction, bid, user)
+    api/web/            Gin controllers and validation
+  usecase/              application use cases
+  internal_error/       custom error types
+docs/CHALLENGE.md       original challenge brief (pt-BR)
+```
+
+The automatic-close logic lives in `internal/infra/database/auction/create_auction.go`.
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
+- (optional, for running tests/builds locally) Go 1.26+
+
+## Quick Start
+
+Create your local `.env` from the template, then bring up the API and MongoDB with Docker Compose:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+The API will be available at `http://localhost:8080`.
+
+> The real `.env` is git-ignored; `.env.example` is the versioned template. The `cp` step is required
+> because Docker Compose reads `.env` via `env_file`.
+
+### Environment variables
+
+Configured in `.env` at the project root (loaded by the app and by both containers):
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `AUCTION_INTERVAL` | `20s` | Auction duration. After this, an auction is automatically closed. |
+| `AUCTION_CLOSER_INTERVAL` | `10s` | How often the background monitor sweeps for expired auctions. |
+| `BATCH_INSERT_INTERVAL` | `20s` | Bid batch flush interval. |
+| `MAX_BATCH_SIZE` | `4` | Maximum bids per batch. |
+| `MONGO_INITDB_ROOT_USERNAME` | `admin` | MongoDB root user (created on first run). |
+| `MONGO_INITDB_ROOT_PASSWORD` | `admin` | MongoDB root password. |
+| `MONGODB_URL` | `mongodb://admin:admin@mongodb:27017/auctions?authSource=admin` | Connection string. |
+| `MONGODB_DB` | `auctions` | Database name. |
+
+> Values accept any Go duration string (e.g. `20s`, `1m`, `1m30s`). If `AUCTION_INTERVAL` is missing or
+> invalid the app falls back to `5m`; `AUCTION_CLOSER_INTERVAL` falls back to `10s`.
+
+### See the automatic close in action
+
+With the default `AUCTION_INTERVAL=20s`:
+
+```bash
+# 1. Create an auction
+curl -X POST http://localhost:8080/auction \
+  -H 'Content-Type: application/json' \
+  -d '{"product_name":"Vintage Clock","category":"Decor","description":"A beautiful vintage wall clock from 1950","condition":1}'
+
+# 2. List active auctions and copy the "id"
+curl "http://localhost:8080/auction?status=0"
+
+# 3. Wait > 20s, then fetch the auction by id — "status" is now 1 (Completed)
+curl http://localhost:8080/auction/<auction-id>
+```
 
 ## API Documentation
 
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/auction` | Create an auction. Body: `product_name`, `category`, `description`, `condition` (`0`, `1` or `2`). |
+| `GET` | `/auction?status=0` | List auctions by status (`0` = Active, `1` = Completed). `status` is required. |
+| `GET` | `/auction/:auctionId` | Fetch an auction by id. |
+| `GET` | `/auction/winner/:auctionId` | Fetch the winning bid for an auction. |
+| `POST` | `/bid` | Place a bid. Body: `user_id`, `auction_id`, `amount`. |
+| `GET` | `/bid/:auctionId` | List bids for an auction. |
+| `GET` | `/user/:userId` | Fetch a user by id. |
+
+`AuctionStatus`: `0 = Active`, `1 = Completed`. `ProductCondition`: `1 = New`, `2 = Used`, `3 = Refurbished`.
+
 ## Running Tests
 
-## Screenshots
+The automatic-close behavior is covered by integration tests that spin up an ephemeral MongoDB using
+Testcontainers (a running Docker daemon is required). They are guarded by the `integration` build tag:
+
+```bash
+go test -race -tags integration ./...
+```
+
+The suite (`internal/infra/database/auction/create_auction_test.go`) validates:
+
+- **Scheduled close** — a created auction starts `Active` and becomes `Completed` after `AUCTION_INTERVAL`.
+- **Background monitor** — an already-expired `Active` auction inserted directly into the database is closed
+  by the monitor on its next sweep.
 
 ## Service Management
+
+```bash
+docker compose up --build      # build and start (foreground)
+docker compose up --build -d   # build and start (detached)
+docker compose logs -f app     # follow application logs
+docker compose ps              # list services
+docker compose down            # stop and remove containers/network
+docker compose down -v         # also remove the MongoDB data volume
+```
 
 ---
 
@@ -43,13 +162,21 @@
 
 ### Required by the challenge
 
-- [x]
-- [x]
+- [x] A function that computes the auction duration from environment variables — `getAuctionInterval()` in
+  `internal/infra/database/auction/create_auction.go` (reads `AUCTION_INTERVAL`).
+- [x] A goroutine that detects expired auctions and closes them via update —
+  `StartAuctionCloser` / `closeExpiredAuctions` (background monitor), complemented by the per-auction
+  `scheduleAuctionClose` / `closeAuction`.
+- [x] A test validating that closing happens automatically — integration tests with Testcontainers.
+- [x] Documentation on how to run in dev + Docker/Docker Compose — this README.
 
-### ### Beyond the base
+### Beyond the base
+
+- Hybrid closing strategy (scheduled close + background safety-net monitor) for durability across restarts.
+- Idempotent updates filtered by `status = Active` and a mutex to guard concurrent closes.
 
 ---
 
 ## License
 
-This project is licensed 
+This project is licensed under the MIT License.
