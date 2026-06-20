@@ -28,6 +28,12 @@ func CreateAuction(
 	return auction, nil
 }
 
+// TODO: corrigir precedência booleana. Como `&&` liga mais forte que `||`, a
+// condição é avaliada como
+// `ProductName<=1 || Category<=2 || (Description<=10 && condição_inválida)`,
+// fazendo a checagem de Description só reprovar quando a Condition também é
+// inválida. A validação de Description deveria ser independente da Condition.
+// Corrigir altera o contrato de validação e exigirá ajustar os testes.
 func (au *Auction) Validate() *internal_error.InternalError {
 	if len(au.ProductName) <= 1 ||
 		len(au.Category) <= 2 ||
