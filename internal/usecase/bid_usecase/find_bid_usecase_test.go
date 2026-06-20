@@ -37,7 +37,7 @@ func TestFindBidByAuctionId_MapsFields(t *testing.T) {
 
 // TestFindBidByAuctionId_RepositoryError valida a propagação de erro do repositório.
 func TestFindBidByAuctionId_RepositoryError(t *testing.T) {
-	repo := &fakeBidRepo{findErr: internal_error.NewInternalServerError("boom")}
+	repo := &fakeBidRepo{findErr: internal_error.NewInternalServerError("unexpected error")}
 	uc := bid_usecase.NewBidUseCase(repo)
 
 	out, err := uc.FindBidByAuctionId(context.Background(), uuid.NewString())
@@ -68,7 +68,7 @@ func TestFindWinningBidByAuctionId_MapsFields(t *testing.T) {
 
 // TestFindWinningBidByAuctionId_RepositoryError valida a propagação de erro.
 func TestFindWinningBidByAuctionId_RepositoryError(t *testing.T) {
-	repo := &fakeBidRepo{winningErr: internal_error.NewInternalServerError("boom")}
+	repo := &fakeBidRepo{winningErr: internal_error.NewInternalServerError("unexpected error")}
 	uc := bid_usecase.NewBidUseCase(repo)
 
 	out, err := uc.FindWinningBidByAuctionId(context.Background(), uuid.NewString())
