@@ -22,9 +22,9 @@ func TestCreateBid_InsertsValidBids(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	auctionRepo := auction.NewAuctionRepository(db)
-	bidRepo := bid.NewBidRepository(db, auctionRepo)
 	ctx := context.Background()
+	auctionRepo := auction.NewAuctionRepository(ctx, db)
+	bidRepo := bid.NewBidRepository(db, auctionRepo)
 
 	auctionId := uuid.NewString()
 	require.NoError(t, auctionRepo.InsertAuctionForTest(ctx, auctionId,
@@ -49,9 +49,9 @@ func TestCreateBid_RejectsCompletedAuction(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	auctionRepo := auction.NewAuctionRepository(db)
-	bidRepo := bid.NewBidRepository(db, auctionRepo)
 	ctx := context.Background()
+	auctionRepo := auction.NewAuctionRepository(ctx, db)
+	bidRepo := bid.NewBidRepository(db, auctionRepo)
 
 	auctionId := uuid.NewString()
 	require.NoError(t, auctionRepo.InsertAuctionForTest(ctx, auctionId,

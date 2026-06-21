@@ -52,7 +52,7 @@ func initDependencies(ctx context.Context, database *mongo.Database) (
 	bidController *bid_controller.BidController,
 	auctionController *auction_controller.AuctionController) {
 
-	auctionRepository := auction.NewAuctionRepository(database)
+	auctionRepository := auction.NewAuctionRepository(ctx, database)
 	auctionRepository.StartAuctionCloser(ctx)
 
 	bidRepository := bid.NewBidRepository(database, auctionRepository)

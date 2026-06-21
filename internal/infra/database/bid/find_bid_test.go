@@ -58,7 +58,7 @@ func setupMongo(t *testing.T) *mongo.Database {
 // AuctionRepository exigido pelo construtor.
 func newBidRepository(t *testing.T, db *mongo.Database) *bid.BidRepository {
 	t.Helper()
-	return bid.NewBidRepository(db, auction.NewAuctionRepository(db))
+	return bid.NewBidRepository(db, auction.NewAuctionRepository(context.Background(), db))
 }
 
 // TestFindBidByAuctionId_ReturnsBids valida que apenas os bids do auction filtrado

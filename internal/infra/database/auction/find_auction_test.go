@@ -19,8 +19,8 @@ func TestFindAuctionById_Found(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 
 	id := uuid.NewString()
 	require.NoError(t, repo.InsertAuctionForTest(ctx, id,
@@ -40,8 +40,8 @@ func TestFindAuctionById_NotFound(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 
 	found, err := repo.FindAuctionById(ctx, uuid.NewString())
 	require.NotNil(t, err)
@@ -54,8 +54,8 @@ func TestFindAuctions_ByStatus(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 	ts := time.Now().Unix()
 
 	activeID := uuid.NewString()
@@ -78,8 +78,8 @@ func TestFindAuctions_ByCategory(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 	ts := time.Now().Unix()
 
 	artID := uuid.NewString()
@@ -103,8 +103,8 @@ func TestFindAuctions_ByProductName(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 	ts := time.Now().Unix()
 
 	clockID := uuid.NewString()
@@ -127,8 +127,8 @@ func TestFindAuctions_EmptyFilter(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 	ts := time.Now().Unix()
 
 	for i := 0; i < 3; i++ {

@@ -27,13 +27,17 @@ type AuctionRepository struct {
 	Collection      *mongo.Collection
 	auctionInterval time.Duration
 	auctionMutex    *sync.Mutex
+	// closerCtx limita o tempo de vida das goroutines de fechamento agendado.
+	// Quando cancelado, scheduleAuctionClose retorna sem disparar o update.
+	closerCtx context.Context
 }
 
-func NewAuctionRepository(database *mongo.Database) *AuctionRepository {
+func NewAuctionRepository(ctx context.Context, database *mongo.Database) *AuctionRepository {
 	return &AuctionRepository{
 		Collection:      database.Collection("auctions"),
 		auctionInterval: getAuctionInterval(),
 		auctionMutex:    &sync.Mutex{},
+		closerCtx:       ctx,
 	}
 }
 
@@ -64,8 +68,18 @@ func (ar *AuctionRepository) CreateAuction(
 
 // scheduleAuctionClose aguarda o intervalo do leilão e, ao expirar, dispara o
 // fechamento. Roda em uma goroutine independente do request que criou o leilão.
+// O timer respeita closerCtx para permitir shutdown ordenado: se o contexto
+// for cancelado antes do intervalo, a goroutine retorna sem fechar o leilão
+// (a varredura do StartAuctionCloser cobre o caso após restart).
 func (ar *AuctionRepository) scheduleAuctionClose(auctionId string) {
-	time.Sleep(ar.auctionInterval)
+	timer := time.NewTimer(ar.auctionInterval)
+	defer timer.Stop()
+
+	select {
+	case <-ar.closerCtx.Done():
+		return
+	case <-timer.C:
+	}
 
 	if err := ar.closeAuction(auctionId); err != nil {
 		logger.Error(fmt.Sprintf("Error trying to close auction %s automatically", auctionId), err)

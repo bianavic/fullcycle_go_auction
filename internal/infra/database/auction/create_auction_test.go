@@ -93,8 +93,8 @@ func TestCreateAuction_ClosesAutomaticallyAfterInterval(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 
 	auctionEntity, errEntity := auction_entity.CreateAuction(
 		"Vintage Clock", "Decor", "A beautiful vintage wall clock", auction_entity.New)
@@ -120,8 +120,8 @@ func TestStartAuctionCloser_ClosesExpiredAuction(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 
 	id := uuid.NewString()
 	require.NoError(t, repo.InsertExpiredAuctionForTest(ctx, id, time.Now().Add(-time.Hour).Unix()))
@@ -141,8 +141,8 @@ func TestStartAuctionCloser_CompletedAuction_NotReopened(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 
 	id := uuid.NewString()
 	require.NoError(t, repo.InsertAuctionForTest(ctx, id,
@@ -167,8 +167,8 @@ func TestStartAuctionCloser_NoExpiredAuctions_DoesNothing(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 
 	// Timestamp futuro: nunca atinge o critério de vencimento mesmo com AUCTION_INTERVAL=1s.
 	id := uuid.NewString()
@@ -195,8 +195,8 @@ func TestCreateAuction_ConcurrentClosers_Idempotent(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 
 	auctionEntity, errEntity := auction_entity.CreateAuction(
 		"Concurrent Clock", "Decor", "A beautiful vintage wall clock", auction_entity.New)
@@ -227,8 +227,8 @@ func TestStartAuctionCloser_StopsOnContextCancel(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := auction.NewAuctionRepository(db)
 	ctx := context.Background()
+	repo := auction.NewAuctionRepository(ctx, db)
 
 	// confirma que o monitor está vivo fechando um primeiro leilão vencido;
 	// ao final do Eventually a goroutine está ociosa (bloqueada no select).
