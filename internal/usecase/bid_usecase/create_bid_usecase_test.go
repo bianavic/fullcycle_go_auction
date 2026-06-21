@@ -105,6 +105,26 @@ func TestCreateBid_FlushesOnTimerExpiry(t *testing.T) {
 	}, 2*time.Second, 20*time.Millisecond, "expected timer-based flush of 1 bid")
 }
 
+// TestCreateBid_EmptyBatch_TimerDoesNotFlush guarda o fix do commit 8: o flush por
+// timer só ocorre quando há bids acumulados (if len(batch) > 0 em
+// create_bid_usecase.go). Sem nenhum CreateBid, o timer expira repetidamente e
+// nenhum lote (nem vazio) deve ser enviado ao repositório. A asserção é sobre o
+// NÚMERO DE CHAMADAS (batches()), não totalBids(): um lote vazio contribui 0 bids
+// de qualquer forma, então só a contagem de chamadas distingue o código com guard
+// do código sem guard.
+func TestCreateBid_EmptyBatch_TimerDoesNotFlush(t *testing.T) {
+	t.Setenv("MAX_BATCH_SIZE", "10")
+	t.Setenv("BATCH_INSERT_INTERVAL", "50ms")
+
+	repo := &fakeBidRepo{}
+	_ = bid_usecase.NewBidUseCase(repo) // inicia a goroutine; nenhum bid enfileirado
+
+	require.Never(t, func() bool {
+		return len(repo.batches()) > 0
+	}, 300*time.Millisecond, 20*time.Millisecond,
+		"timer must not flush an empty batch")
+}
+
 // TestCreateBid_InvalidUserId_ReturnsBadRequest valida que um userId inválido é
 // barrado antes de enfileirar.
 func TestCreateBid_InvalidUserId_ReturnsBadRequest(t *testing.T) {
