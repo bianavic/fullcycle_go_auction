@@ -90,6 +90,16 @@ func (bu *BidUseCase) triggerCreateRoutine(ctx context.Context) {
 					}
 
 					bu.batch = nil
+					// Stop e drain antes do Reset: o timer pode ter expirado e deixado
+					// um valor pendente em C, o que faria a próxima iteração entrar no
+					// case do timer imediatamente. O guard len(bu.batch) > 0 cobre o
+					// sintoma, mas o pattern correto é stop+drain+reset.
+					if !bu.timer.Stop() {
+						select {
+						case <-bu.timer.C:
+						default:
+						}
+					}
 					bu.timer.Reset(bu.batchInsertInterval)
 				}
 			case <-bu.timer.C:
