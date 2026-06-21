@@ -133,6 +133,93 @@ func TestStartAuctionCloser_ClosesExpiredAuction(t *testing.T) {
 	waitForStatus(t, repo, id, auction_entity.Completed, 5*time.Second)
 }
 
+// TestStartAuctionCloser_CompletedAuction_NotReopened verifica que o monitor nunca
+// reabre um leilão já fechado: o filtro status=Active em closeExpiredAuctions impede
+// qualquer atualização em documentos com status=Completed, mesmo quando o timestamp
+// do leilão está dentro da janela de vencimento.
+func TestStartAuctionCloser_CompletedAuction_NotReopened(t *testing.T) {
+	t.Parallel()
+
+	db := setupMongo(t)
+	repo := auction.NewAuctionRepository(db)
+	ctx := context.Background()
+
+	id := uuid.NewString()
+	require.NoError(t, repo.InsertAuctionForTest(ctx, id,
+		"Completed Item", "Cat", "a completed auction for integration",
+		auction_entity.New, auction_entity.Completed, time.Now().Add(-time.Hour).Unix()))
+
+	monitorCtx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	repo.StartAuctionCloser(monitorCtx)
+
+	require.Never(t, func() bool {
+		found, err := repo.FindAuctionById(ctx, id)
+		return err != nil || found.Status != auction_entity.Completed
+	}, 3*time.Second, 200*time.Millisecond,
+		"auction %s was modified after already being Completed", id)
+}
+
+// TestStartAuctionCloser_NoExpiredAuctions_DoesNothing verifica que o monitor não
+// fecha leilões Active cujo timestamp está no futuro: o filtro $lt não os alcança
+// e o status permanece Active após vários ticks.
+func TestStartAuctionCloser_NoExpiredAuctions_DoesNothing(t *testing.T) {
+	t.Parallel()
+
+	db := setupMongo(t)
+	repo := auction.NewAuctionRepository(db)
+	ctx := context.Background()
+
+	// Timestamp futuro: nunca atinge o critério de vencimento mesmo com AUCTION_INTERVAL=1s.
+	id := uuid.NewString()
+	require.NoError(t, repo.InsertAuctionForTest(ctx, id,
+		"Future Item", "Cat", "a future auction for integration",
+		auction_entity.New, auction_entity.Active, time.Now().Add(time.Hour).Unix()))
+
+	monitorCtx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	repo.StartAuctionCloser(monitorCtx)
+
+	require.Never(t, func() bool {
+		found, err := repo.FindAuctionById(ctx, id)
+		return err != nil || found.Status != auction_entity.Active
+	}, 3*time.Second, 200*time.Millisecond,
+		"auction %s status changed unexpectedly", id)
+}
+
+// TestCreateAuction_ConcurrentClosers_Idempotent valida a idempotência quando
+// scheduleAuctionClose e o monitor em background concorrem para fechar o mesmo
+// leilão: apenas um executa a atualização; o segundo encontra status≠Active e é
+// silencioso. O status final deve ser Completed sem oscilação.
+func TestCreateAuction_ConcurrentClosers_Idempotent(t *testing.T) {
+	t.Parallel()
+
+	db := setupMongo(t)
+	repo := auction.NewAuctionRepository(db)
+	ctx := context.Background()
+
+	auctionEntity, errEntity := auction_entity.CreateAuction(
+		"Concurrent Clock", "Decor", "A beautiful vintage wall clock", auction_entity.New)
+	require.Nil(t, errEntity)
+	// CreateAuction dispara scheduleAuctionClose (fecha após AUCTION_INTERVAL=1s).
+	require.Nil(t, repo.CreateAuction(ctx, auctionEntity))
+
+	// Monitor também tentará fechar o leilão após o ticket de 1s.
+	monitorCtx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	repo.StartAuctionCloser(monitorCtx)
+
+	// Aguarda o fechamento (qualquer fechador pode chegar primeiro).
+	waitForStatus(t, repo, auctionEntity.Id, auction_entity.Completed, 5*time.Second)
+
+	// Após Completed, o status não deve oscilar: o segundo fechador deve ser no-op.
+	require.Never(t, func() bool {
+		found, err := repo.FindAuctionById(ctx, auctionEntity.Id)
+		return err != nil || found.Status != auction_entity.Completed
+	}, 3*time.Second, 200*time.Millisecond,
+		"auction %s changed status after becoming Completed", auctionEntity.Id)
+}
+
 // TestStartAuctionCloser_StopsOnContextCancel valida o ciclo de vida da goroutine
 // do monitor: após o cancelamento do contexto, a varredura para e um leilão vencido
 // inserido em seguida permanece Active.
