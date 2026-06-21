@@ -49,7 +49,7 @@ func (repo *AuctionRepository) FindAuctions(
 	}
 
 	if productName != "" {
-		filter["productName"] = primitive.Regex{Pattern: productName, Options: "i"}
+		filter["product_name"] = primitive.Regex{Pattern: productName, Options: "i"}
 	}
 
 	cursor, err := repo.Collection.Find(ctx, filter)

@@ -14,7 +14,7 @@ import (
 
 func (bd *BidRepository) FindBidByAuctionId(
 	ctx context.Context, auctionId string) ([]bid_entity.Bid, *internal_error.InternalError) {
-	filter := bson.M{"auctionId": auctionId}
+	filter := bson.M{"auction_id": auctionId}
 
 	cursor, err := bd.Collection.Find(ctx, filter)
 	if err != nil {
@@ -51,7 +51,7 @@ func (bd *BidRepository) FindWinningBidByAuctionId(
 	filter := bson.M{"auction_id": auctionId}
 
 	var bidEntityMongo BidEntityMongo
-	opts := options.FindOne().SetSort(bson.D{{"amount", -1}})
+	opts := options.FindOne().SetSort(bson.D{{Key: "amount", Value: -1}})
 	if err := bd.Collection.FindOne(ctx, filter, opts).Decode(&bidEntityMongo); err != nil {
 		logger.Error("Error trying to find the auction winner", err)
 		return nil, internal_error.NewInternalServerError("Error trying to find the auction winner")

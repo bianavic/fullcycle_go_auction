@@ -31,6 +31,10 @@ type BidUseCase struct {
 	maxBatchSize        int
 	batchInsertInterval time.Duration
 	bidChannel          chan bid_entity.Bid
+
+	// batch acumula os bids pendentes. É acessado apenas pela goroutine de
+	// triggerCreateRoutine, então não exige sincronização adicional.
+	batch []bid_entity.Bid
 }
 
 func NewBidUseCase(bidRepository bid_entity.BidEntityRepository) BidUseCaseInterface {
@@ -49,8 +53,6 @@ func NewBidUseCase(bidRepository bid_entity.BidEntityRepository) BidUseCaseInter
 
 	return bidUseCase
 }
-
-var bidBatch []bid_entity.Bid
 
 type BidUseCaseInterface interface {
 	CreateBid(
@@ -72,29 +74,31 @@ func (bu *BidUseCase) triggerCreateRoutine(ctx context.Context) {
 			select {
 			case bidEntity, ok := <-bu.bidChannel:
 				if !ok {
-					if len(bidBatch) > 0 {
-						if err := bu.BidRepository.CreateBid(ctx, bidBatch); err != nil {
+					if len(bu.batch) > 0 {
+						if err := bu.BidRepository.CreateBid(ctx, bu.batch); err != nil {
 							logger.Error("error trying to process bid batch list", err)
 						}
 					}
 					return
 				}
 
-				bidBatch = append(bidBatch, bidEntity)
+				bu.batch = append(bu.batch, bidEntity)
 
-				if len(bidBatch) >= bu.maxBatchSize {
-					if err := bu.BidRepository.CreateBid(ctx, bidBatch); err != nil {
+				if len(bu.batch) >= bu.maxBatchSize {
+					if err := bu.BidRepository.CreateBid(ctx, bu.batch); err != nil {
 						logger.Error("error trying to process bid batch list", err)
 					}
 
-					bidBatch = nil
+					bu.batch = nil
 					bu.timer.Reset(bu.batchInsertInterval)
 				}
 			case <-bu.timer.C:
-				if err := bu.BidRepository.CreateBid(ctx, bidBatch); err != nil {
-					logger.Error("error trying to process bid batch list", err)
+				if len(bu.batch) > 0 {
+					if err := bu.BidRepository.CreateBid(ctx, bu.batch); err != nil {
+						logger.Error("error trying to process bid batch list", err)
+					}
+					bu.batch = nil
 				}
-				bidBatch = nil
 				bu.timer.Reset(bu.batchInsertInterval)
 			}
 		}
