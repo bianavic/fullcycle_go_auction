@@ -44,7 +44,9 @@ func main() {
 	router.GET("/bid/:auctionId", bidController.FindBidByAuctionId)
 	router.GET("/user/:userId", userController.FindUserById)
 
-	router.Run(":8080")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatalf("server failed to start: %v", err)
+	}
 }
 
 func initDependencies(ctx context.Context, database *mongo.Database) (

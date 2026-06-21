@@ -20,12 +20,12 @@ func (m *mockUserRepository) FindUserById(ctx context.Context, userId string) (*
 
 	var user *user_entity.User
 	if value := args.Get(0); value != nil {
-		user = value.(*user_entity.User)
+		user, _ = value.(*user_entity.User)
 	}
 
 	var err *internal_error.InternalError
 	if value := args.Get(1); value != nil {
-		err = value.(*internal_error.InternalError)
+		err, _ = value.(*internal_error.InternalError)
 	}
 
 	return user, err

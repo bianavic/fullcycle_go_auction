@@ -57,7 +57,7 @@ func (repo *AuctionRepository) FindAuctions(
 		logger.Error("Error finding auctions", err)
 		return nil, internal_error.NewInternalServerError("Error finding auctions")
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var auctionsMongo []AuctionEntityMongo
 	if err := cursor.All(ctx, &auctionsMongo); err != nil {

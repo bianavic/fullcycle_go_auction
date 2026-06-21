@@ -27,12 +27,12 @@ func (m *mockUserUseCase) FindUserById(
 
 	var out *user_usecase.UserOutputDTO
 	if v := args.Get(0); v != nil {
-		out = v.(*user_usecase.UserOutputDTO)
+		out, _ = v.(*user_usecase.UserOutputDTO)
 	}
 
 	var err *internal_error.InternalError
 	if v := args.Get(1); v != nil {
-		err = v.(*internal_error.InternalError)
+		err, _ = v.(*internal_error.InternalError)
 	}
 
 	return out, err

@@ -22,7 +22,7 @@ func init() {
 		en := en.New()
 		enTransl := ut.New(en, en)
 		transl, _ = enTransl.GetTranslator("en")
-		validator_en.RegisterDefaultTranslations(value, transl)
+		_ = validator_en.RegisterDefaultTranslations(value, transl)
 	}
 }
 
@@ -35,7 +35,7 @@ func ValidateErr(validation_err error) *rest_err.RestErr {
 	} else if errors.As(validation_err, &jsonValidation) {
 		errorCauses := []rest_err.Causes{}
 
-		for _, e := range validation_err.(validator.ValidationErrors) {
+		for _, e := range jsonValidation {
 			errorCauses = append(errorCauses, rest_err.Causes{
 				Field:   e.Field(),
 				Message: e.Translate(transl),
