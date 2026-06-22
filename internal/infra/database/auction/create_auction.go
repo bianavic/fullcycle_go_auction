@@ -152,9 +152,6 @@ func (ar *AuctionRepository) closeExpiredAuctions(ctx context.Context) *internal
 	return nil
 }
 
-// getAuctionInterval calcula a duração do leilão a partir da variável de
-// ambiente AUCTION_INTERVAL (ex.: "20s", "5m"). Caso a variável esteja ausente
-// ou seja inválida, assume 5 minutos como padrão.
 func getAuctionInterval() time.Duration {
 	auctionInterval := os.Getenv("AUCTION_INTERVAL")
 	duration, err := time.ParseDuration(auctionInterval)
@@ -165,9 +162,6 @@ func getAuctionInterval() time.Duration {
 	return duration
 }
 
-// getCloserInterval define a frequência de varredura do monitor de fechamento,
-// a partir de AUCTION_CLOSER_INTERVAL. Default de 10 segundos quando a variável
-// está ausente ou é inválida.
 func getCloserInterval() time.Duration {
 	closerInterval := os.Getenv("AUCTION_CLOSER_INTERVAL")
 	duration, err := time.ParseDuration(closerInterval)

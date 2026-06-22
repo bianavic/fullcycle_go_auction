@@ -16,8 +16,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// setupMongo sobe um MongoDB efêmero via Testcontainers e devolve um *mongo.Database
-// pronto para uso. A limpeza é registrada com t.Cleanup.
 func setupMongo(t *testing.T) *mongo.Database {
 	t.Helper()
 	ctx := context.Background()
@@ -52,7 +50,6 @@ func setupMongo(t *testing.T) *mongo.Database {
 	return client.Database("auctions_test")
 }
 
-// TestFindUserByID_Found insere um user e o recupera por ID.
 func TestFindUserByID_Found(t *testing.T) {
 	t.Parallel()
 
@@ -69,7 +66,6 @@ func TestFindUserByID_Found(t *testing.T) {
 	require.Equal(t, "Alice", found.Name)
 }
 
-// TestFindUserByID_NotFound confirma que um ID inexistente retorna NotFoundError.
 // O marcador %! aparece quando há erro de verbo de formato. exemplo: %d -> %s
 func TestFindUserByID_NotFound(t *testing.T) {
 	t.Parallel()

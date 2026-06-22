@@ -48,7 +48,6 @@ func TestAuction_Validate(t *testing.T) {
 	}
 }
 
-// TestCreateAuction_Valid confirma que o construtor gera ID, marca Active e valida.
 func TestCreateAuction_Valid(t *testing.T) {
 	t.Parallel()
 
@@ -59,7 +58,6 @@ func TestCreateAuction_Valid(t *testing.T) {
 	require.Equal(t, auction.Active, a.Status)
 }
 
-// TestCreateAuction_Invalid confirma que entradas inválidas não produzem entidade.
 func TestCreateAuction_Invalid(t *testing.T) {
 	t.Parallel()
 

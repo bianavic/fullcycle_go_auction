@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeAuctionRepo é um stub de auction.AuctionRepositoryInterface.
 type fakeAuctionRepo struct {
 	created   []*auction.Auction
 	createErr *internal_error.InternalError
@@ -86,7 +85,7 @@ func TestCreateAuction_ValidationError(t *testing.T) {
 	uc := auctionuc.New(auctionRepo, &fakeBidRepo{})
 
 	input := validInput()
-	input.ProductName = "C" // muito curto -> falha na validação da entidade
+	input.ProductName = "C"
 
 	err := uc.CreateAuction(context.Background(), input)
 	require.NotNil(t, err)

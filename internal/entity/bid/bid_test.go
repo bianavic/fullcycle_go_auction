@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCreateBid_Validation cobre a validação de UserID/AuctionID (UUID) e Amount.
 func TestCreateBid_Validation(t *testing.T) {
 	cases := []struct {
 		name      string

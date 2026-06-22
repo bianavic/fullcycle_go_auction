@@ -18,8 +18,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// setupMongo sobe um MongoDB efêmero via Testcontainers e devolve um *mongo.Database
-// pronto para uso. A limpeza é registrada com t.Cleanup.
 func setupMongo(t *testing.T) *mongo.Database {
 	t.Helper()
 	ctx := context.Background()
@@ -61,8 +59,6 @@ func newBidRepository(t *testing.T, db *mongo.Database) *bid.BidRepository {
 	return bid.New(db, auction.New(context.Background(), db))
 }
 
-// TestFindBidByAuctionID_ReturnsBids valida que apenas os bids do auction filtrado
-// são retornados.
 func TestFindBidByAuctionID_ReturnsBids(t *testing.T) {
 	t.Parallel()
 
@@ -82,8 +78,6 @@ func TestFindBidByAuctionID_ReturnsBids(t *testing.T) {
 	require.Len(t, bids, 2)
 }
 
-// TestFindBidByAuctionID_EmptyWhenNone confirma que um auction sem bids retorna
-// slice vazio sem erro.
 func TestFindBidByAuctionID_EmptyWhenNone(t *testing.T) {
 	t.Parallel()
 
@@ -96,8 +90,6 @@ func TestFindBidByAuctionID_EmptyWhenNone(t *testing.T) {
 	require.Empty(t, bids)
 }
 
-// TestFindWinningBidByAuctionID_ReturnsHighestAmount valida a ordenação descendente
-// por amount: o vencedor é o maior lance.
 func TestFindWinningBidByAuctionID_ReturnsHighestAmount(t *testing.T) {
 	t.Parallel()
 
@@ -118,8 +110,6 @@ func TestFindWinningBidByAuctionID_ReturnsHighestAmount(t *testing.T) {
 	require.Equal(t, float64(300), winner.Amount)
 }
 
-// TestFindWinningBidByAuctionID_NotFound confirma que um auction sem bids retorna
-// erro.
 func TestFindWinningBidByAuctionID_NotFound(t *testing.T) {
 	t.Parallel()
 

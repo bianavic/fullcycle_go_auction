@@ -16,8 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCreateBid_InsertsValidBids valida que um lote de bids para um leilão Active é
-// persistido.
 func TestCreateBid_InsertsValidBids(t *testing.T) {
 	t.Parallel()
 

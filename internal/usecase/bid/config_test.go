@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestGetMaxBatchSize valida o parsing de MAX_BATCH_SIZE e o fallback para 5.
 func TestGetMaxBatchSize(t *testing.T) {
 	t.Run("default when unset", func(t *testing.T) {
 		t.Setenv("MAX_BATCH_SIZE", "")
@@ -23,8 +22,6 @@ func TestGetMaxBatchSize(t *testing.T) {
 	})
 }
 
-// TestGetBatchInsertInterval valida o parsing de BATCH_INSERT_INTERVAL e o
-// fallback para 3 minutos.
 func TestGetBatchInsertInterval(t *testing.T) {
 	t.Run("default when unset", func(t *testing.T) {
 		t.Setenv("BATCH_INSERT_INTERVAL", "")

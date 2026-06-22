@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFindBidByAuctionID_MapsFields valida o mapeamento Bid -> BidOutputDTO.
 func TestFindBidByAuctionID_MapsFields(t *testing.T) {
 	auctionID := uuid.NewString()
 	bidID := uuid.NewString()
@@ -35,7 +34,6 @@ func TestFindBidByAuctionID_MapsFields(t *testing.T) {
 	require.Equal(t, ts, out[0].Timestamp)
 }
 
-// TestFindBidByAuctionID_RepositoryError valida a propagação de erro do repositório.
 func TestFindBidByAuctionID_RepositoryError(t *testing.T) {
 	repo := &fakeBidRepo{findErr: internal_error.NewInternalServerError("unexpected error")}
 	uc := biduc.New(repo)
@@ -45,7 +43,6 @@ func TestFindBidByAuctionID_RepositoryError(t *testing.T) {
 	require.Nil(t, out)
 }
 
-// TestFindWinningBidByAuctionID_MapsFields valida o mapeamento do lance vencedor.
 func TestFindWinningBidByAuctionID_MapsFields(t *testing.T) {
 	auctionID := uuid.NewString()
 	bidID := uuid.NewString()
@@ -66,7 +63,6 @@ func TestFindWinningBidByAuctionID_MapsFields(t *testing.T) {
 	require.Equal(t, ts, out.Timestamp)
 }
 
-// TestFindWinningBidByAuctionID_RepositoryError valida a propagação de erro.
 func TestFindWinningBidByAuctionID_RepositoryError(t *testing.T) {
 	repo := &fakeBidRepo{winningErr: internal_error.NewInternalServerError("unexpected error")}
 	uc := biduc.New(repo)

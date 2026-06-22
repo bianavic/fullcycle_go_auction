@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFindAuctionByID_Found insere um leilão e o recupera por ID exato.
 func TestFindAuctionByID_Found(t *testing.T) {
 	t.Parallel()
 
@@ -35,7 +34,6 @@ func TestFindAuctionByID_Found(t *testing.T) {
 	require.Equal(t, auction.Active, found.Status)
 }
 
-// TestFindAuctionByID_NotFound confirma que um ID inexistente retorna erro.
 func TestFindAuctionByID_NotFound(t *testing.T) {
 	t.Parallel()
 
@@ -73,7 +71,6 @@ func TestFindAuctions_ByStatus(t *testing.T) {
 	require.Equal(t, completedID, completed[0].ID)
 }
 
-// TestFindAuctions_ByCategory valida o filtro exato por categoria.
 func TestFindAuctions_ByCategory(t *testing.T) {
 	t.Parallel()
 
@@ -121,8 +118,6 @@ func TestFindAuctions_ByProductName(t *testing.T) {
 	require.Equal(t, clockID, result[0].ID)
 }
 
-// TestFindAuctions_EmptyFilter confirma que status=0 sem categoria nem productName
-// retorna todos os leilões.
 func TestFindAuctions_EmptyFilter(t *testing.T) {
 	t.Parallel()
 

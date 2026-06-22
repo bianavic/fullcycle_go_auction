@@ -30,9 +30,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// setupMongo sobe um MongoDB efêmero via Testcontainers e devolve um *mongo.Database
-// pronto para uso. A limpeza (encerrar container e desconectar o client) é registrada
-// com t.Cleanup.
 func setupMongo(t *testing.T) *mongo.Database {
 	t.Helper()
 	ctx := context.Background()
@@ -67,8 +64,6 @@ func setupMongo(t *testing.T) *mongo.Database {
 	return client.Database("auctions_test")
 }
 
-// waitForStatus consulta o leilão repetidamente até que ele atinja o status
-// esperado ou o timeout estoure.
 func waitForStatus(
 	t *testing.T,
 	repo *auction.AuctionRepository,
@@ -86,9 +81,6 @@ func waitForStatus(
 		"auction %s did not reach status %d within %s", id, want, timeout)
 }
 
-// TestCreateAuction_ClosesAutomaticallyAfterInterval valida o fechamento agendado:
-// ao criar um leilão, ele deve nascer Active e ser marcado como Completed assim que
-// AUCTION_INTERVAL expira.
 func TestCreateAuction_ClosesAutomaticallyAfterInterval(t *testing.T) {
 	t.Parallel()
 

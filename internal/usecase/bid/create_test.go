@@ -62,8 +62,6 @@ func (f *fakeBidRepo) totalBids() int {
 	return n
 }
 
-// TestCreateBid_FlushesOnMaxBatchSize valida que o lote é persistido assim que
-// atinge maxBatchSize (também cobre o caminho de input válido enfileirado).
 func TestCreateBid_FlushesOnMaxBatchSize(t *testing.T) {
 	t.Setenv("MAX_BATCH_SIZE", "2")
 	t.Setenv("BATCH_INSERT_INTERVAL", "1m")
@@ -87,8 +85,6 @@ func TestCreateBid_FlushesOnMaxBatchSize(t *testing.T) {
 	require.Len(t, batches[0], 2)
 }
 
-// TestCreateBid_FlushesOnTimerExpiry valida que um lote abaixo de maxBatchSize é
-// persistido quando o timer expira.
 func TestCreateBid_FlushesOnTimerExpiry(t *testing.T) {
 	t.Setenv("MAX_BATCH_SIZE", "10")
 	t.Setenv("BATCH_INSERT_INTERVAL", "100ms")
@@ -138,7 +134,6 @@ func TestCreateBid_InvalidUserId_ReturnsBadRequest(t *testing.T) {
 	require.Equal(t, 0, repo.totalBids())
 }
 
-// TestCreateBid_NegativeAmount_ReturnsBadRequest valida o guard de amount <= 0.
 func TestCreateBid_NegativeAmount_ReturnsBadRequest(t *testing.T) {
 	repo := &fakeBidRepo{}
 	uc := biduc.New(repo)
