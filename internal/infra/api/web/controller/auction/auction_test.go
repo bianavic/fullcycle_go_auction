@@ -26,8 +26,7 @@ func (m *mockAuctionUseCase) CreateAuction(
 	ctx context.Context, input auction.AuctionInputDTO) *internal_error.InternalError {
 	args := m.Called(ctx, input)
 	if v := args.Get(0); v != nil {
-		ret, _ := v.(*internal_error.InternalError)
-		return ret
+		return v.(*internal_error.InternalError)
 	}
 	return nil
 }
@@ -38,12 +37,12 @@ func (m *mockAuctionUseCase) FindAuctionByID(
 
 	var out *auction.AuctionOutputDTO
 	if v := args.Get(0); v != nil {
-		out, _ = v.(*auction.AuctionOutputDTO)
+		out = v.(*auction.AuctionOutputDTO)
 	}
 
 	var err *internal_error.InternalError
 	if v := args.Get(1); v != nil {
-		err, _ = v.(*internal_error.InternalError)
+		err = v.(*internal_error.InternalError)
 	}
 
 	return out, err
@@ -56,12 +55,12 @@ func (m *mockAuctionUseCase) FindAuctions(
 
 	var out []auction.AuctionOutputDTO
 	if v := args.Get(0); v != nil {
-		out, _ = v.([]auction.AuctionOutputDTO)
+		out = v.([]auction.AuctionOutputDTO)
 	}
 
 	var err *internal_error.InternalError
 	if v := args.Get(1); v != nil {
-		err, _ = v.(*internal_error.InternalError)
+		err = v.(*internal_error.InternalError)
 	}
 
 	return out, err
@@ -73,12 +72,12 @@ func (m *mockAuctionUseCase) FindWinningBidByAuctionID(
 
 	var out *auction.WinningInfoOutputDTO
 	if v := args.Get(0); v != nil {
-		out, _ = v.(*auction.WinningInfoOutputDTO)
+		out = v.(*auction.WinningInfoOutputDTO)
 	}
 
 	var err *internal_error.InternalError
 	if v := args.Get(1); v != nil {
-		err, _ = v.(*internal_error.InternalError)
+		err = v.(*internal_error.InternalError)
 	}
 
 	return out, err
