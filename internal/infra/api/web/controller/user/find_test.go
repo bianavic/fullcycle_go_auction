@@ -48,56 +48,57 @@ func setupUserRouter(uc useruc.UseCase) *gin.Engine {
 	return r
 }
 
-func TestFindUserByID_InvalidUUID_ReturnsBadRequest(t *testing.T) {
+func TestFindUserByID(t *testing.T) {
 	t.Parallel()
 
-	useCase := new(mockUserUseCase)
-	router := setupUserRouter(useCase)
+	t.Run("invalid UUID returns bad request", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockUserUseCase)
+		router := setupUserRouter(useCase)
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/users/not-a-uuid", nil)
-	router.ServeHTTP(w, req)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/users/not-a-uuid", nil)
+		router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	// validação de UUID acontece no controller, antes do use case.
-	useCase.AssertNotCalled(t, "FindUserByID", mock.Anything, mock.Anything)
-}
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		// validação de UUID acontece no controller, antes do use case.
+		useCase.AssertNotCalled(t, "FindUserByID", mock.Anything, mock.Anything)
+	})
 
-func TestFindUserByID_Found_ReturnsOK(t *testing.T) {
-	t.Parallel()
+	t.Run("found returns OK", func(t *testing.T) {
+		t.Parallel()
+		id := uuid.NewString()
+		useCase := new(mockUserUseCase)
+		useCase.On("FindUserByID", mock.Anything, id).
+			Return(&useruc.UserOutputDTO{ID: id, Name: "Jane Doe"}, nil)
+		router := setupUserRouter(useCase)
 
-	id := uuid.NewString()
-	useCase := new(mockUserUseCase)
-	useCase.On("FindUserByID", mock.Anything, id).
-		Return(&useruc.UserOutputDTO{ID: id, Name: "Jane Doe"}, nil)
-	router := setupUserRouter(useCase)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/users/"+id, nil)
+		router.ServeHTTP(w, req)
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/users/"+id, nil)
-	router.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
 
-	require.Equal(t, http.StatusOK, w.Code)
+		var body useruc.UserOutputDTO
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+		require.Equal(t, id, body.ID)
+		require.Equal(t, "Jane Doe", body.Name)
+		useCase.AssertExpectations(t)
+	})
 
-	var body useruc.UserOutputDTO
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	require.Equal(t, id, body.ID)
-	require.Equal(t, "Jane Doe", body.Name)
-	useCase.AssertExpectations(t)
-}
+	t.Run("use case not found returns 404", func(t *testing.T) {
+		t.Parallel()
+		id := uuid.NewString()
+		useCase := new(mockUserUseCase)
+		useCase.On("FindUserByID", mock.Anything, id).
+			Return(nil, internal_error.NewNotFoundError("user not found"))
+		router := setupUserRouter(useCase)
 
-func TestFindUserByID_UseCaseNotFound_ReturnsNotFound(t *testing.T) {
-	t.Parallel()
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/users/"+id, nil)
+		router.ServeHTTP(w, req)
 
-	id := uuid.NewString()
-	useCase := new(mockUserUseCase)
-	useCase.On("FindUserByID", mock.Anything, id).
-		Return(nil, internal_error.NewNotFoundError("user not found"))
-	router := setupUserRouter(useCase)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/users/"+id, nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusNotFound, w.Code)
-	useCase.AssertExpectations(t)
+		require.Equal(t, http.StatusNotFound, w.Code)
+		useCase.AssertExpectations(t)
+	})
 }

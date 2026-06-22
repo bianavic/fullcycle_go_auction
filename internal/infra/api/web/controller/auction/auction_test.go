@@ -100,199 +100,203 @@ func setupAuctionRouter(uc auction.UseCase) *gin.Engine {
 
 const validAuctionBody = `{"product_name":"Clock","category":"Decor","description":"A long enough description","condition":1}`
 
-func TestCreateAuction_ValidBody_ReturnsCreated(t *testing.T) {
+func TestCreateAuction(t *testing.T) {
 	t.Parallel()
 
-	useCase := new(mockAuctionUseCase)
-	useCase.On("CreateAuction", mock.Anything, mock.Anything).Return(nil)
-	router := setupAuctionRouter(useCase)
+	t.Run("valid body returns created", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockAuctionUseCase)
+		useCase.On("CreateAuction", mock.Anything, mock.Anything).Return(nil)
+		router := setupAuctionRouter(useCase)
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/auctions", strings.NewReader(validAuctionBody))
-	router.ServeHTTP(w, req)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/auctions", strings.NewReader(validAuctionBody))
+		router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusCreated, w.Code)
-	useCase.AssertExpectations(t)
+		require.Equal(t, http.StatusCreated, w.Code)
+		useCase.AssertExpectations(t)
+	})
+
+	t.Run("binding failure returns bad request", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockAuctionUseCase)
+		router := setupAuctionRouter(useCase)
+
+		// body vazio falha nos binding tags required/min do AuctionInputDTO.
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/auctions", strings.NewReader(`{}`))
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		useCase.AssertNotCalled(t, "CreateAuction", mock.Anything, mock.Anything)
+	})
+
+	t.Run("use case internal error returns 500", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockAuctionUseCase)
+		useCase.On("CreateAuction", mock.Anything, mock.Anything).
+			Return(internal_error.NewInternalServerError("boom"))
+		router := setupAuctionRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/auctions", strings.NewReader(validAuctionBody))
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusInternalServerError, w.Code)
+		useCase.AssertExpectations(t)
+	})
+
+	t.Run("use case bad request returns 400", func(t *testing.T) {
+		t.Parallel()
+		// cobre o ramo bad_request de rest_err.ConvertError.
+		useCase := new(mockAuctionUseCase)
+		useCase.On("CreateAuction", mock.Anything, mock.Anything).
+			Return(internal_error.NewBadRequestError("invalid"))
+		router := setupAuctionRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/auctions", strings.NewReader(validAuctionBody))
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		useCase.AssertExpectations(t)
+	})
 }
 
-func TestCreateAuction_BindingFailure_ReturnsBadRequest(t *testing.T) {
+func TestFindAuctionByID(t *testing.T) {
 	t.Parallel()
 
-	useCase := new(mockAuctionUseCase)
-	router := setupAuctionRouter(useCase)
+	t.Run("invalid UUID returns bad request", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockAuctionUseCase)
+		router := setupAuctionRouter(useCase)
 
-	// body vazio falha nos binding tags required/min do AuctionInputDTO.
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/auctions", strings.NewReader(`{}`))
-	router.ServeHTTP(w, req)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auctions/not-a-uuid", nil)
+		router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	useCase.AssertNotCalled(t, "CreateAuction", mock.Anything, mock.Anything)
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		useCase.AssertNotCalled(t, "FindAuctionByID", mock.Anything, mock.Anything)
+	})
+
+	t.Run("found returns OK", func(t *testing.T) {
+		t.Parallel()
+		id := uuid.NewString()
+		useCase := new(mockAuctionUseCase)
+		useCase.On("FindAuctionByID", mock.Anything, id).
+			Return(&auction.AuctionOutputDTO{ID: id, ProductName: "Clock"}, nil)
+		router := setupAuctionRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auctions/"+id, nil)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+
+		var body auction.AuctionOutputDTO
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+		require.Equal(t, id, body.ID)
+		useCase.AssertExpectations(t)
+	})
+
+	t.Run("use case not found returns 404", func(t *testing.T) {
+		t.Parallel()
+		id := uuid.NewString()
+		useCase := new(mockAuctionUseCase)
+		useCase.On("FindAuctionByID", mock.Anything, id).
+			Return(nil, internal_error.NewNotFoundError("missing"))
+		router := setupAuctionRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auctions/"+id, nil)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusNotFound, w.Code)
+		useCase.AssertExpectations(t)
+	})
 }
 
-func TestCreateAuction_UseCaseInternalError_ReturnsInternalServerError(t *testing.T) {
+func TestFindAuctions(t *testing.T) {
 	t.Parallel()
 
-	useCase := new(mockAuctionUseCase)
-	useCase.On("CreateAuction", mock.Anything, mock.Anything).
-		Return(internal_error.NewInternalServerError("boom"))
-	router := setupAuctionRouter(useCase)
+	t.Run("non-numeric status returns bad request", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockAuctionUseCase)
+		router := setupAuctionRouter(useCase)
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/auctions", strings.NewReader(validAuctionBody))
-	router.ServeHTTP(w, req)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auctions?status=abc", nil)
+		router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusInternalServerError, w.Code)
-	useCase.AssertExpectations(t)
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		useCase.AssertNotCalled(t, "FindAuctions", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("empty status returns bad request", func(t *testing.T) {
+		t.Parallel()
+		// sem ?status= -> strconv.Atoi("") falha antes de chamar o use case.
+		useCase := new(mockAuctionUseCase)
+		router := setupAuctionRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auctions", nil)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		useCase.AssertNotCalled(t, "FindAuctions", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("valid status returns OK", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockAuctionUseCase)
+		useCase.On("FindAuctions", mock.Anything, auction.AuctionStatus(0), "", "").
+			Return([]auction.AuctionOutputDTO{{ID: uuid.NewString()}}, nil)
+		router := setupAuctionRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auctions?status=0", nil)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		useCase.AssertExpectations(t)
+	})
 }
 
-func TestCreateAuction_UseCaseBadRequest_ReturnsBadRequest(t *testing.T) {
+func TestFindWinningBid(t *testing.T) {
 	t.Parallel()
 
-	// cobre o ramo bad_request de rest_err.ConvertError.
-	useCase := new(mockAuctionUseCase)
-	useCase.On("CreateAuction", mock.Anything, mock.Anything).
-		Return(internal_error.NewBadRequestError("invalid"))
-	router := setupAuctionRouter(useCase)
+	t.Run("invalid UUID returns bad request", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockAuctionUseCase)
+		router := setupAuctionRouter(useCase)
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/auctions", strings.NewReader(validAuctionBody))
-	router.ServeHTTP(w, req)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auctions/not-a-uuid/winner", nil)
+		router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	useCase.AssertExpectations(t)
-}
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		useCase.AssertNotCalled(t, "FindWinningBidByAuctionID", mock.Anything, mock.Anything)
+	})
 
-func TestFindAuctionByID_InvalidUUID_ReturnsBadRequest(t *testing.T) {
-	t.Parallel()
+	t.Run("fail open nil bid returns OK without bid field", func(t *testing.T) {
+		t.Parallel()
+		// fail-open: use case retorna o auction com Bid nil; controller responde 200 e
+		// o campo "bid" é omitido (json:"bid,omitempty").
+		id := uuid.NewString()
+		useCase := new(mockAuctionUseCase)
+		useCase.On("FindWinningBidByAuctionID", mock.Anything, id).
+			Return(&auction.WinningInfoOutputDTO{
+				Auction: auction.AuctionOutputDTO{ID: id},
+				Bid:     nil,
+			}, nil)
+		router := setupAuctionRouter(useCase)
 
-	useCase := new(mockAuctionUseCase)
-	router := setupAuctionRouter(useCase)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auctions/"+id+"/winner", nil)
+		router.ServeHTTP(w, req)
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/auctions/not-a-uuid", nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	useCase.AssertNotCalled(t, "FindAuctionByID", mock.Anything, mock.Anything)
-}
-
-func TestFindAuctionByID_Found_ReturnsOK(t *testing.T) {
-	t.Parallel()
-
-	id := uuid.NewString()
-	useCase := new(mockAuctionUseCase)
-	useCase.On("FindAuctionByID", mock.Anything, id).
-		Return(&auction.AuctionOutputDTO{ID: id, ProductName: "Clock"}, nil)
-	router := setupAuctionRouter(useCase)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/auctions/"+id, nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-
-	var body auction.AuctionOutputDTO
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	require.Equal(t, id, body.ID)
-	useCase.AssertExpectations(t)
-}
-
-func TestFindAuctionByID_UseCaseNotFound_ReturnsNotFound(t *testing.T) {
-	t.Parallel()
-
-	id := uuid.NewString()
-	useCase := new(mockAuctionUseCase)
-	useCase.On("FindAuctionByID", mock.Anything, id).
-		Return(nil, internal_error.NewNotFoundError("missing"))
-	router := setupAuctionRouter(useCase)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/auctions/"+id, nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusNotFound, w.Code)
-	useCase.AssertExpectations(t)
-}
-
-func TestFindAuctions_NonNumericStatus_ReturnsBadRequest(t *testing.T) {
-	t.Parallel()
-
-	useCase := new(mockAuctionUseCase)
-	router := setupAuctionRouter(useCase)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/auctions?status=abc", nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	useCase.AssertNotCalled(t, "FindAuctions", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-}
-
-func TestFindAuctions_EmptyStatus_ReturnsBadRequest(t *testing.T) {
-	t.Parallel()
-
-	// sem ?status= -> strconv.Atoi("") falha antes de chamar o use case.
-	useCase := new(mockAuctionUseCase)
-	router := setupAuctionRouter(useCase)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/auctions", nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	useCase.AssertNotCalled(t, "FindAuctions", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-}
-
-func TestFindAuctions_ValidStatus_ReturnsOK(t *testing.T) {
-	t.Parallel()
-
-	useCase := new(mockAuctionUseCase)
-	useCase.On("FindAuctions", mock.Anything, auction.AuctionStatus(0), "", "").
-		Return([]auction.AuctionOutputDTO{{ID: uuid.NewString()}}, nil)
-	router := setupAuctionRouter(useCase)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/auctions?status=0", nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-	useCase.AssertExpectations(t)
-}
-
-func TestFindWinningBid_InvalidUUID_ReturnsBadRequest(t *testing.T) {
-	t.Parallel()
-
-	useCase := new(mockAuctionUseCase)
-	router := setupAuctionRouter(useCase)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/auctions/not-a-uuid/winner", nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	useCase.AssertNotCalled(t, "FindWinningBidByAuctionID", mock.Anything, mock.Anything)
-}
-
-func TestFindWinningBid_FailOpenNilBid_ReturnsOKWithoutBidField(t *testing.T) {
-	t.Parallel()
-
-	// fail-open: use case retorna o auction com Bid nil; controller responde 200 e
-	// o campo "bid" é omitido (json:"bid,omitempty").
-	id := uuid.NewString()
-	useCase := new(mockAuctionUseCase)
-	useCase.On("FindWinningBidByAuctionID", mock.Anything, id).
-		Return(&auction.WinningInfoOutputDTO{
-			Auction: auction.AuctionOutputDTO{ID: id},
-			Bid:     nil,
-		}, nil)
-	router := setupAuctionRouter(useCase)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/auctions/"+id+"/winner", nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-	require.NotContains(t, w.Body.String(), `"bid"`)
-	useCase.AssertExpectations(t)
+		require.Equal(t, http.StatusOK, w.Code)
+		require.NotContains(t, w.Body.String(), `"bid"`)
+		useCase.AssertExpectations(t)
+	})
 }

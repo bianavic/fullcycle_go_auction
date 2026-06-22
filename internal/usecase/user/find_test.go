@@ -2,10 +2,11 @@ package user_test
 
 import (
 	"context"
+	"testing"
+
 	"fullcycle-auction_go/internal/entity/user"
 	"fullcycle-auction_go/internal/internal_error"
 	useruc "fullcycle-auction_go/internal/usecase/user"
-	"testing"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -31,40 +32,38 @@ func (m *mockUserRepository) FindUserByID(ctx context.Context, userID string) (*
 	return u, err
 }
 
-func TestFindUserByID_ShouldReturnUserOutputDTO_WhenRepositoryReturnsUser(t *testing.T) {
+func TestFindUserByID(t *testing.T) {
 	t.Parallel()
 
-	repository := new(mockUserRepository)
-	repository.On("FindUserByID", mock.Anything, "user-123").Return(&user.User{
-		ID:   "user-123",
-		Name: "Jane Doe",
-	}, nil)
+	t.Run("returns DTO", func(t *testing.T) {
+		t.Parallel()
+		repository := new(mockUserRepository)
+		repository.On("FindUserByID", mock.Anything, "user-123").Return(&user.User{
+			ID:   "user-123",
+			Name: "Jane Doe",
+		}, nil)
 
-	useCase := useruc.New(repository)
-	result, err := useCase.FindUserByID(context.Background(), "user-123")
+		useCase := useruc.New(repository)
+		result, err := useCase.FindUserByID(context.Background(), "user-123")
 
-	require.Nil(t, err)
-	require.NotNil(t, result)
-	require.Equal(t, "user-123", result.ID)
-	require.Equal(t, "Jane Doe", result.Name)
+		require.Nil(t, err)
+		require.NotNil(t, result)
+		require.Equal(t, "user-123", result.ID)
+		require.Equal(t, "Jane Doe", result.Name)
+		repository.AssertExpectations(t)
+	})
 
-	repository.AssertExpectations(t)
-}
+	t.Run("propagates repository error", func(t *testing.T) {
+		t.Parallel()
+		repository := new(mockUserRepository)
+		expectedError := internal_error.NewNotFoundError("user not found")
+		repository.On("FindUserByID", mock.Anything, "user-123").Return(nil, expectedError)
 
-func TestFindUserByID_ShouldReturnError_WhenRepositoryFails(t *testing.T) {
-	t.Parallel()
+		useCase := useruc.New(repository)
+		result, err := useCase.FindUserByID(context.Background(), "user-123")
 
-	repository := new(mockUserRepository)
-
-	expectedError := internal_error.NewNotFoundError("user not found")
-
-	repository.On("FindUserByID", mock.Anything, "user-123").Return(nil, expectedError)
-
-	useCase := useruc.New(repository)
-
-	result, err := useCase.FindUserByID(context.Background(), "user-123")
-
-	require.Nil(t, result)
-	require.ErrorIs(t, err, expectedError)
-	repository.AssertExpectations(t)
+		require.Nil(t, result)
+		require.ErrorIs(t, err, expectedError)
+		repository.AssertExpectations(t)
+	})
 }

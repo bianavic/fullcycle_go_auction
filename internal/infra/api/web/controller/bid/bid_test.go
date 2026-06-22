@@ -78,103 +78,105 @@ func setupBidRouter(uc bid.UseCase) *gin.Engine {
 	return r
 }
 
-func TestCreateBid_ValidBody_ReturnsCreated(t *testing.T) {
+func TestCreateBid(t *testing.T) {
 	t.Parallel()
 
-	useCase := new(mockBidUseCase)
-	useCase.On("CreateBid", mock.Anything, mock.Anything).Return(nil)
-	router := setupBidRouter(useCase)
+	t.Run("valid body returns created", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockBidUseCase)
+		useCase.On("CreateBid", mock.Anything, mock.Anything).Return(nil)
+		router := setupBidRouter(useCase)
 
-	body := `{"user_id":"` + uuid.NewString() + `","auction_id":"` + uuid.NewString() + `","amount":100}`
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/bids", strings.NewReader(body))
-	router.ServeHTTP(w, req)
+		body := `{"user_id":"` + uuid.NewString() + `","auction_id":"` + uuid.NewString() + `","amount":100}`
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/bids", strings.NewReader(body))
+		router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusCreated, w.Code)
-	useCase.AssertExpectations(t)
+		require.Equal(t, http.StatusCreated, w.Code)
+		useCase.AssertExpectations(t)
+	})
+
+	t.Run("malformed JSON returns bad request", func(t *testing.T) {
+		t.Parallel()
+		// BidInputDTO não tem binding tags; só JSON sintaticamente inválido falha o bind.
+		useCase := new(mockBidUseCase)
+		router := setupBidRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/bids", strings.NewReader(`{`))
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		useCase.AssertNotCalled(t, "CreateBid", mock.Anything, mock.Anything)
+	})
+
+	t.Run("type mismatch returns not found", func(t *testing.T) {
+		t.Parallel()
+		// QUIRK: erro de tipo no JSON (amount string) cai no ramo *json.UnmarshalTypeError
+		// de validation.ValidateErr, que retorna NewNotFoundError -> 404 (não 400).
+		// Teste trava o comportamento atual; distinto do JSON malformado (400).
+		useCase := new(mockBidUseCase)
+		router := setupBidRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/bids", strings.NewReader(`{"amount":"not-a-number"}`))
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusNotFound, w.Code)
+		useCase.AssertNotCalled(t, "CreateBid", mock.Anything, mock.Anything)
+	})
+
+	t.Run("use case error returns 500", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockBidUseCase)
+		useCase.On("CreateBid", mock.Anything, mock.Anything).
+			Return(internal_error.NewInternalServerError("boom"))
+		router := setupBidRouter(useCase)
+
+		body := `{"user_id":"` + uuid.NewString() + `","auction_id":"` + uuid.NewString() + `","amount":100}`
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/bids", strings.NewReader(body))
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusInternalServerError, w.Code)
+		useCase.AssertExpectations(t)
+	})
 }
 
-func TestCreateBid_MalformedJSON_ReturnsBadRequest(t *testing.T) {
+func TestFindBidByAuctionID(t *testing.T) {
 	t.Parallel()
 
-	// BidInputDTO não tem binding tags; só JSON sintaticamente inválido falha o bind.
-	useCase := new(mockBidUseCase)
-	router := setupBidRouter(useCase)
+	t.Run("invalid UUID returns bad request", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockBidUseCase)
+		router := setupBidRouter(useCase)
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/bids", strings.NewReader(`{`))
-	router.ServeHTTP(w, req)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/bids/not-a-uuid", nil)
+		router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	useCase.AssertNotCalled(t, "CreateBid", mock.Anything, mock.Anything)
-}
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		useCase.AssertNotCalled(t, "FindBidByAuctionID", mock.Anything, mock.Anything)
+	})
 
-func TestCreateBid_TypeMismatch_ReturnsNotFound(t *testing.T) {
-	t.Parallel()
+	t.Run("found returns OK", func(t *testing.T) {
+		t.Parallel()
+		id := uuid.NewString()
+		useCase := new(mockBidUseCase)
+		useCase.On("FindBidByAuctionID", mock.Anything, id).
+			Return([]bid.BidOutputDTO{{ID: uuid.NewString(), AuctionID: id, Amount: 100}}, nil)
+		router := setupBidRouter(useCase)
 
-	// QUIRK: erro de tipo no JSON (amount string) cai no ramo *json.UnmarshalTypeError
-	// de validation.ValidateErr, que retorna NewNotFoundError -> 404 (não 400).
-	// Teste trava o comportamento atual; distinto do JSON malformado (400).
-	useCase := new(mockBidUseCase)
-	router := setupBidRouter(useCase)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/bids/"+id, nil)
+		router.ServeHTTP(w, req)
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/bids", strings.NewReader(`{"amount":"not-a-number"}`))
-	router.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
 
-	require.Equal(t, http.StatusNotFound, w.Code)
-	useCase.AssertNotCalled(t, "CreateBid", mock.Anything, mock.Anything)
-}
-
-func TestCreateBid_UseCaseError_ReturnsInternalServerError(t *testing.T) {
-	t.Parallel()
-
-	useCase := new(mockBidUseCase)
-	useCase.On("CreateBid", mock.Anything, mock.Anything).
-		Return(internal_error.NewInternalServerError("boom"))
-	router := setupBidRouter(useCase)
-
-	body := `{"user_id":"` + uuid.NewString() + `","auction_id":"` + uuid.NewString() + `","amount":100}`
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/bids", strings.NewReader(body))
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusInternalServerError, w.Code)
-	useCase.AssertExpectations(t)
-}
-
-func TestFindBidByAuctionID_InvalidUUID_ReturnsBadRequest(t *testing.T) {
-	t.Parallel()
-
-	useCase := new(mockBidUseCase)
-	router := setupBidRouter(useCase)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/bids/not-a-uuid", nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusBadRequest, w.Code)
-	useCase.AssertNotCalled(t, "FindBidByAuctionID", mock.Anything, mock.Anything)
-}
-
-func TestFindBidByAuctionID_Found_ReturnsOK(t *testing.T) {
-	t.Parallel()
-
-	id := uuid.NewString()
-	useCase := new(mockBidUseCase)
-	useCase.On("FindBidByAuctionID", mock.Anything, id).
-		Return([]bid.BidOutputDTO{{ID: uuid.NewString(), AuctionID: id, Amount: 100}}, nil)
-	router := setupBidRouter(useCase)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/bids/"+id, nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-
-	var body []bid.BidOutputDTO
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	require.Len(t, body, 1)
-	require.Equal(t, id, body[0].AuctionID)
-	useCase.AssertExpectations(t)
+		var body []bid.BidOutputDTO
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+		require.Len(t, body, 1)
+		require.Equal(t, id, body[0].AuctionID)
+		useCase.AssertExpectations(t)
+	})
 }

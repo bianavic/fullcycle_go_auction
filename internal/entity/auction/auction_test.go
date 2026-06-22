@@ -48,21 +48,23 @@ func TestAuction_Validate(t *testing.T) {
 	}
 }
 
-func TestCreateAuction_Valid(t *testing.T) {
+func TestCreateAuction(t *testing.T) {
 	t.Parallel()
 
-	a, err := auction.CreateAuction(
-		"Clock", "Decor", "A long enough description", auction.New)
-	require.Nil(t, err)
-	require.NotEmpty(t, a.ID)
-	require.Equal(t, auction.Active, a.Status)
-}
+	t.Run("valid input", func(t *testing.T) {
+		t.Parallel()
+		a, err := auction.CreateAuction(
+			"Clock", "Decor", "A long enough description", auction.New)
+		require.Nil(t, err)
+		require.NotEmpty(t, a.ID)
+		require.Equal(t, auction.Active, a.Status)
+	})
 
-func TestCreateAuction_Invalid(t *testing.T) {
-	t.Parallel()
-
-	a, err := auction.CreateAuction(
-		"C", "Decor", "A long enough description", auction.New)
-	require.NotNil(t, err)
-	require.Nil(t, a)
+	t.Run("invalid input", func(t *testing.T) {
+		t.Parallel()
+		a, err := auction.CreateAuction(
+			"C", "Decor", "A long enough description", auction.New)
+		require.NotNil(t, err)
+		require.Nil(t, a)
+	})
 }
