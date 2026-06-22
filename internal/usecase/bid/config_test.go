@@ -23,19 +23,19 @@ func TestGetMaxBatchSize(t *testing.T) {
 	})
 }
 
-// TestGetMaxBatchSizeInterval valida o parsing de BATCH_INSERT_INTERVAL e o
+// TestGetBatchInsertInterval valida o parsing de BATCH_INSERT_INTERVAL e o
 // fallback para 3 minutos.
-func TestGetMaxBatchSizeInterval(t *testing.T) {
+func TestGetBatchInsertInterval(t *testing.T) {
 	t.Run("default when unset", func(t *testing.T) {
 		t.Setenv("BATCH_INSERT_INTERVAL", "")
-		require.Equal(t, 3*time.Minute, getMaxBatchSizeInterval())
+		require.Equal(t, 3*time.Minute, getBatchInsertInterval())
 	})
 	t.Run("default when invalid", func(t *testing.T) {
 		t.Setenv("BATCH_INSERT_INTERVAL", "nonsense")
-		require.Equal(t, 3*time.Minute, getMaxBatchSizeInterval())
+		require.Equal(t, 3*time.Minute, getBatchInsertInterval())
 	})
 	t.Run("parses valid value", func(t *testing.T) {
 		t.Setenv("BATCH_INSERT_INTERVAL", "50ms")
-		require.Equal(t, 50*time.Millisecond, getMaxBatchSizeInterval())
+		require.Equal(t, 50*time.Millisecond, getBatchInsertInterval())
 	})
 }

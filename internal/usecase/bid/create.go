@@ -38,14 +38,14 @@ type useCase struct {
 }
 
 func New(bidRepository bid.BidRepository) UseCase {
-	maxSizeInterval := getMaxBatchSizeInterval()
+	batchInsertInterval := getBatchInsertInterval()
 	maxBatchSize := getMaxBatchSize()
 
 	bidUseCase := &useCase{
 		BidRepository:       bidRepository,
 		maxBatchSize:        maxBatchSize,
-		batchInsertInterval: maxSizeInterval,
-		timer:               time.NewTimer(maxSizeInterval),
+		batchInsertInterval: batchInsertInterval,
+		timer:               time.NewTimer(batchInsertInterval),
 		bidChannel:          make(chan bid.Bid, maxBatchSize),
 	}
 
@@ -129,7 +129,7 @@ func (uc *useCase) CreateBid(
 	return nil
 }
 
-func getMaxBatchSizeInterval() time.Duration {
+func getBatchInsertInterval() time.Duration {
 	batchInsertInterval := os.Getenv("BATCH_INSERT_INTERVAL")
 	duration, err := time.ParseDuration(batchInsertInterval)
 	if err != nil {
