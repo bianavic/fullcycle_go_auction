@@ -13,16 +13,16 @@ import (
 )
 
 var (
-	Validate = validator.New()
-	transl   ut.Translator
+	Validate   = validator.New()
+	translator ut.Translator
 )
 
 func init() {
 	if value, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		en := en.New()
 		enTransl := ut.New(en, en)
-		transl, _ = enTransl.GetTranslator("en")
-		validator_en.RegisterDefaultTranslations(value, transl)
+		translator, _ = enTransl.GetTranslator("en")
+		_ = validator_en.RegisterDefaultTranslations(value, translator)
 	}
 }
 
@@ -35,10 +35,10 @@ func ValidateErr(validation_err error) *rest_err.RestErr {
 	} else if errors.As(validation_err, &jsonValidation) {
 		errorCauses := []rest_err.Causes{}
 
-		for _, e := range validation_err.(validator.ValidationErrors) {
+		for _, e := range jsonValidation {
 			errorCauses = append(errorCauses, rest_err.Causes{
 				Field:   e.Field(),
-				Message: e.Translate(transl),
+				Message: e.Translate(translator),
 			})
 		}
 
