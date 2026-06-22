@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"fullcycle-auction_go/internal/entity/auction"
-	"fullcycle-auction_go/internal/infra/database/auction"
+	auctiondb "fullcycle-auction_go/internal/infra/database/auction"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -66,7 +66,7 @@ func setupMongo(t *testing.T) *mongo.Database {
 
 func waitForStatus(
 	t *testing.T,
-	repo *auction.AuctionRepository,
+	repo *auctiondb.AuctionRepository,
 	id string,
 	want auction.AuctionStatus,
 	timeout time.Duration,
@@ -86,7 +86,7 @@ func TestCreateAuction_ClosesAutomaticallyAfterInterval(t *testing.T) {
 
 	db := setupMongo(t)
 	ctx := context.Background()
-	repo := auction.NewAuctionRepository(ctx, db)
+	repo := auctiondb.New(ctx, db)
 
 	auctionEntity, errEntity := auction.CreateAuction(
 		"Vintage Clock", "Decor", "A beautiful vintage wall clock", auction.New)
@@ -105,78 +105,107 @@ func TestCreateAuction_ClosesAutomaticallyAfterInterval(t *testing.T) {
 	})
 }
 
-// TestStartAuctionCloser_ClosesExpiredAuction valida o monitor em background:
-// um leilão já vencido inserido diretamente no banco (sem passar pelo fechamento
-// agendado) deve ser fechado pela varredura periódica.
-func TestStartAuctionCloser_ClosesExpiredAuction(t *testing.T) {
+func TestStartAuctionCloser(t *testing.T) {
 	t.Parallel()
 
-	db := setupMongo(t)
-	ctx := context.Background()
-	repo := auction.NewAuctionRepository(ctx, db)
+	// Valida o monitor em background: um leilão já vencido inserido diretamente no banco
+	// (sem passar pelo fechamento agendado) deve ser fechado pela varredura periódica.
+	t.Run("closes expired auction", func(t *testing.T) {
+		t.Parallel()
+		db := setupMongo(t)
+		ctx := context.Background()
+		repo := auctiondb.New(ctx, db)
 
-	id := uuid.NewString()
-	require.NoError(t, repo.InsertExpiredAuctionForTest(ctx, id, time.Now().Add(-time.Hour).Unix()))
+		id := uuid.NewString()
+		require.NoError(t, repo.InsertExpiredAuctionForTest(ctx, id, time.Now().Add(-time.Hour).Unix()))
 
-	monitorCtx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	repo.StartAuctionCloser(monitorCtx)
+		monitorCtx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		repo.StartAuctionCloser(monitorCtx)
 
-	waitForStatus(t, repo, id, auction.Completed, 5*time.Second)
-}
+		waitForStatus(t, repo, id, auction.Completed, 5*time.Second)
+	})
 
-// TestStartAuctionCloser_CompletedAuction_NotReopened verifica que o monitor nunca
-// reabre um leilão já fechado: o filtro status=Active em closeExpiredAuctions impede
-// qualquer atualização em documentos com status=Completed, mesmo quando o timestamp
-// do leilão está dentro da janela de vencimento.
-func TestStartAuctionCloser_CompletedAuction_NotReopened(t *testing.T) {
-	t.Parallel()
+	// Verifica que o monitor nunca reabre um leilão já fechado: o filtro status=Active em
+	// closeExpiredAuctions impede qualquer atualização em documentos com status=Completed,
+	// mesmo quando o timestamp do leilão está dentro da janela de vencimento.
+	t.Run("completed auction is not reopened", func(t *testing.T) {
+		t.Parallel()
+		db := setupMongo(t)
+		ctx := context.Background()
+		repo := auctiondb.New(ctx, db)
 
-	db := setupMongo(t)
-	ctx := context.Background()
-	repo := auction.NewAuctionRepository(ctx, db)
+		id := uuid.NewString()
+		require.NoError(t, repo.InsertAuctionForTest(ctx, id,
+			"Completed Item", "Cat", "a completed auction for integration",
+			auction.New, auction.Completed, time.Now().Add(-time.Hour).Unix()))
 
-	id := uuid.NewString()
-	require.NoError(t, repo.InsertAuctionForTest(ctx, id,
-		"Completed Item", "Cat", "a completed auction for integration",
-		auction.New, auction.Completed, time.Now().Add(-time.Hour).Unix()))
+		monitorCtx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		repo.StartAuctionCloser(monitorCtx)
 
-	monitorCtx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	repo.StartAuctionCloser(monitorCtx)
+		require.Never(t, func() bool {
+			found, err := repo.FindAuctionByID(ctx, id)
+			return err != nil || found.Status != auction.Completed
+		}, 3*time.Second, 200*time.Millisecond,
+			"auction %s was modified after already being Completed", id)
+	})
 
-	require.Never(t, func() bool {
-		found, err := repo.FindAuctionByID(ctx, id)
-		return err != nil || found.Status != auction.Completed
-	}, 3*time.Second, 200*time.Millisecond,
-		"auction %s was modified after already being Completed", id)
-}
+	// Verifica que o monitor não fecha leilões Active cujo timestamp está no futuro:
+	// o filtro $lt não os alcança e o status permanece Active após vários ticks.
+	t.Run("no expired auctions does nothing", func(t *testing.T) {
+		t.Parallel()
+		db := setupMongo(t)
+		ctx := context.Background()
+		repo := auctiondb.New(ctx, db)
 
-// TestStartAuctionCloser_NoExpiredAuctions_DoesNothing verifica que o monitor não
-// fecha leilões Active cujo timestamp está no futuro: o filtro $lt não os alcança
-// e o status permanece Active após vários ticks.
-func TestStartAuctionCloser_NoExpiredAuctions_DoesNothing(t *testing.T) {
-	t.Parallel()
+		// Timestamp futuro: nunca atinge o critério de vencimento mesmo com AUCTION_INTERVAL=1s.
+		id := uuid.NewString()
+		require.NoError(t, repo.InsertAuctionForTest(ctx, id,
+			"Future Item", "Cat", "a future auction for integration",
+			auction.New, auction.Active, time.Now().Add(time.Hour).Unix()))
 
-	db := setupMongo(t)
-	ctx := context.Background()
-	repo := auction.NewAuctionRepository(ctx, db)
+		monitorCtx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		repo.StartAuctionCloser(monitorCtx)
 
-	// Timestamp futuro: nunca atinge o critério de vencimento mesmo com AUCTION_INTERVAL=1s.
-	id := uuid.NewString()
-	require.NoError(t, repo.InsertAuctionForTest(ctx, id,
-		"Future Item", "Cat", "a future auction for integration",
-		auction.New, auction.Active, time.Now().Add(time.Hour).Unix()))
+		require.Never(t, func() bool {
+			found, err := repo.FindAuctionByID(ctx, id)
+			return err != nil || found.Status != auction.Active
+		}, 3*time.Second, 200*time.Millisecond,
+			"auction %s status changed unexpectedly", id)
+	})
 
-	monitorCtx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	repo.StartAuctionCloser(monitorCtx)
+	// Valida o ciclo de vida da goroutine do monitor: após o cancelamento do contexto,
+	// a varredura para e um leilão vencido inserido em seguida permanece Active.
+	t.Run("stops on context cancel", func(t *testing.T) {
+		t.Parallel()
+		db := setupMongo(t)
+		ctx := context.Background()
+		repo := auctiondb.New(ctx, db)
 
-	require.Never(t, func() bool {
-		found, err := repo.FindAuctionByID(ctx, id)
-		return err != nil || found.Status != auction.Active
-	}, 3*time.Second, 200*time.Millisecond,
-		"auction %s status changed unexpectedly", id)
+		// confirma que o monitor está vivo fechando um primeiro leilão vencido;
+		// ao final do Eventually a goroutine está ociosa (bloqueada no select).
+		aliveID := uuid.NewString()
+		require.NoError(t, repo.InsertExpiredAuctionForTest(ctx, aliveID, time.Now().Add(-time.Hour).Unix()))
+
+		monitorCtx, cancel := context.WithCancel(context.Background())
+		repo.StartAuctionCloser(monitorCtx)
+		waitForStatus(t, repo, aliveID, auction.Completed, 5*time.Second)
+
+		// com o monitor ocioso, o cancelamento é observado imediatamente no select e a
+		// goroutine encerra sem nova varredura.
+		cancel()
+
+		stoppedID := uuid.NewString()
+		require.NoError(t, repo.InsertExpiredAuctionForTest(ctx, stoppedID, time.Now().Add(-time.Hour).Unix()))
+
+		require.Never(t, func() bool {
+			found, err := repo.FindAuctionByID(ctx, stoppedID)
+			return err == nil && found.Status == auction.Completed
+		}, 3*time.Second, 200*time.Millisecond,
+			"auction %s should remain Active after the closer context was cancelled", stoppedID)
+	})
 }
 
 // TestCreateAuction_ConcurrentClosers_Idempotent valida a idempotência quando
@@ -188,13 +217,13 @@ func TestCreateAuction_ConcurrentClosers_Idempotent(t *testing.T) {
 
 	db := setupMongo(t)
 	ctx := context.Background()
-	repo := auction.NewAuctionRepository(ctx, db)
+	repo := auctiondb.New(ctx, db)
 
-	auction, err := auction.CreateAuction(
+	auctionEntity, err := auction.CreateAuction(
 		"Concurrent Clock", "Decor", "A beautiful vintage wall clock", auction.New)
 	require.Nil(t, err)
 	// CreateAuction dispara scheduleAuctionClose (fecha após AUCTION_INTERVAL=1s).
-	require.Nil(t, repo.CreateAuction(ctx, auction))
+	require.Nil(t, repo.CreateAuction(ctx, auctionEntity))
 
 	// Monitor também tentará fechar o leilão após o ticket de 1s.
 	monitorCtx, cancel := context.WithCancel(context.Background())
@@ -202,45 +231,12 @@ func TestCreateAuction_ConcurrentClosers_Idempotent(t *testing.T) {
 	repo.StartAuctionCloser(monitorCtx)
 
 	// Aguarda o fechamento (qualquer fechador pode chegar primeiro).
-	waitForStatus(t, repo, auction.ID, auction.Completed, 5*time.Second)
+	waitForStatus(t, repo, auctionEntity.ID, auction.Completed, 5*time.Second)
 
 	// Após Completed, o status não deve oscilar: o segundo fechador deve ser no-op.
 	require.Never(t, func() bool {
-		found, err := repo.FindAuctionByID(ctx, auction.ID)
+		found, err := repo.FindAuctionByID(ctx, auctionEntity.ID)
 		return err != nil || found.Status != auction.Completed
 	}, 3*time.Second, 200*time.Millisecond,
-		"auction %s changed status after becoming Completed", auction.ID)
-}
-
-// TestStartAuctionCloser_StopsOnContextCancel valida o ciclo de vida da goroutine
-// do monitor: após o cancelamento do contexto, a varredura para e um leilão vencido
-// inserido em seguida permanece Active.
-func TestStartAuctionCloser_StopsOnContextCancel(t *testing.T) {
-	t.Parallel()
-
-	db := setupMongo(t)
-	ctx := context.Background()
-	repo := auction.NewAuctionRepository(ctx, db)
-
-	// confirma que o monitor está vivo fechando um primeiro leilão vencido;
-	// ao final do Eventually a goroutine está ociosa (bloqueada no select).
-	aliveID := uuid.NewString()
-	require.NoError(t, repo.InsertExpiredAuctionForTest(ctx, aliveID, time.Now().Add(-time.Hour).Unix()))
-
-	monitorCtx, cancel := context.WithCancel(context.Background())
-	repo.StartAuctionCloser(monitorCtx)
-	waitForStatus(t, repo, aliveID, auction.Completed, 5*time.Second)
-
-	// com o monitor ocioso, o cancelamento é observado imediatamente no select e a
-	// goroutine encerra sem nova varredura.
-	cancel()
-
-	stoppedID := uuid.NewString()
-	require.NoError(t, repo.InsertExpiredAuctionForTest(ctx, stoppedID, time.Now().Add(-time.Hour).Unix()))
-
-	require.Never(t, func() bool {
-		found, err := repo.FindAuctionByID(ctx, stoppedID)
-		return err == nil && found.Status == auction.Completed
-	}, 3*time.Second, 200*time.Millisecond,
-		"auction %s should remain Active after the closer context was cancelled", stoppedID)
+		"auction %s changed status after becoming Completed", auctionEntity.ID)
 }

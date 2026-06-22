@@ -62,85 +62,89 @@ func (f *fakeBidRepo) totalBids() int {
 	return n
 }
 
-func TestCreateBid_FlushesOnMaxBatchSize(t *testing.T) {
-	t.Setenv("MAX_BATCH_SIZE", "2")
-	t.Setenv("BATCH_INSERT_INTERVAL", "1m")
+func TestCreateBid_FlushBehavior(t *testing.T) {
+	t.Run("flushes on max batch size", func(t *testing.T) {
+		t.Setenv("MAX_BATCH_SIZE", "2")
+		t.Setenv("BATCH_INSERT_INTERVAL", "1m")
 
-	repo := &fakeBidRepo{}
-	uc := biduc.New(repo)
-	ctx := context.Background()
+		repo := &fakeBidRepo{}
+		uc := biduc.New(repo)
+		ctx := context.Background()
 
-	auctionID := uuid.NewString()
-	require.Nil(t, uc.CreateBid(ctx, biduc.BidInputDTO{
-		UserID: uuid.NewString(), AuctionID: auctionID, Amount: 100}))
-	require.Nil(t, uc.CreateBid(ctx, biduc.BidInputDTO{
-		UserID: uuid.NewString(), AuctionID: auctionID, Amount: 200}))
+		auctionID := uuid.NewString()
+		require.Nil(t, uc.CreateBid(ctx, biduc.BidInputDTO{
+			UserID: uuid.NewString(), AuctionID: auctionID, Amount: 100}))
+		require.Nil(t, uc.CreateBid(ctx, biduc.BidInputDTO{
+			UserID: uuid.NewString(), AuctionID: auctionID, Amount: 200}))
 
-	require.Eventually(t, func() bool {
-		return repo.totalBids() == 2
-	}, 2*time.Second, 20*time.Millisecond, "expected batch flush of 2 bids")
+		require.Eventually(t, func() bool {
+			return repo.totalBids() == 2
+		}, 2*time.Second, 20*time.Millisecond, "expected batch flush of 2 bids")
 
-	batches := repo.batches()
-	require.Len(t, batches, 1)
-	require.Len(t, batches[0], 2)
+		batches := repo.batches()
+		require.Len(t, batches, 1)
+		require.Len(t, batches[0], 2)
+	})
+
+	t.Run("flushes on timer expiry", func(t *testing.T) {
+		t.Setenv("MAX_BATCH_SIZE", "10")
+		t.Setenv("BATCH_INSERT_INTERVAL", "100ms")
+
+		repo := &fakeBidRepo{}
+		uc := biduc.New(repo)
+		ctx := context.Background()
+
+		require.Nil(t, uc.CreateBid(ctx, biduc.BidInputDTO{
+			UserID: uuid.NewString(), AuctionID: uuid.NewString(), Amount: 100}))
+
+		require.Eventually(t, func() bool {
+			return repo.totalBids() == 1
+		}, 2*time.Second, 20*time.Millisecond, "expected timer-based flush of 1 bid")
+	})
+
+	// Valida o fix: o flush por timer só ocorre quando há bids acumulados (if len(batch) > 0
+	// em create.go). A asserção é sobre o número de chamadas (batches()), não totalBids():
+	// um lote vazio contribui 0 bids de qualquer forma, então só a contagem de chamadas
+	// distingue o código com guard do código sem guard.
+	t.Run("empty batch does not flush on timer", func(t *testing.T) {
+		t.Setenv("MAX_BATCH_SIZE", "10")
+		t.Setenv("BATCH_INSERT_INTERVAL", "50ms")
+
+		repo := &fakeBidRepo{}
+		_ = biduc.New(repo) // inicia a goroutine; nenhum bid enfileirado
+
+		require.Never(t, func() bool {
+			return len(repo.batches()) > 0
+		}, 300*time.Millisecond, 20*time.Millisecond,
+			"timer must not flush an empty batch")
+	})
 }
 
-func TestCreateBid_FlushesOnTimerExpiry(t *testing.T) {
-	t.Setenv("MAX_BATCH_SIZE", "10")
-	t.Setenv("BATCH_INSERT_INTERVAL", "100ms")
+func TestCreateBid_Validation(t *testing.T) {
+	t.Parallel()
 
-	repo := &fakeBidRepo{}
-	uc := biduc.New(repo)
-	ctx := context.Background()
+	// barrado antes de enfileirar.
+	t.Run("invalid user ID returns bad request", func(t *testing.T) {
+		t.Parallel()
+		repo := &fakeBidRepo{}
+		uc := biduc.New(repo)
 
-	require.Nil(t, uc.CreateBid(ctx, biduc.BidInputDTO{
-		UserID: uuid.NewString(), AuctionID: uuid.NewString(), Amount: 100}))
+		err := uc.CreateBid(context.Background(), biduc.BidInputDTO{
+			UserID: "not-a-uuid", AuctionID: uuid.NewString(), Amount: 100})
+		require.NotNil(t, err)
+		require.Equal(t, "bad_request", err.Err)
+		require.Equal(t, 0, repo.totalBids())
+	})
 
-	require.Eventually(t, func() bool {
-		return repo.totalBids() == 1
-	}, 2*time.Second, 20*time.Millisecond, "expected timer-based flush of 1 bid")
-}
+	t.Run("negative amount returns bad request", func(t *testing.T) {
+		t.Parallel()
+		repo := &fakeBidRepo{}
+		uc := biduc.New(repo)
 
-// TestCreateBid_EmptyBatch_TimerDoesNotFlush guarda o fix do commit 8: o flush por
-// timer só ocorre quando há bids acumulados (if len(batch) > 0 em
-// create.go). Sem nenhum CreateBid, o timer expira repetidamente e
-// nenhum lote (nem vazio) deve ser enviado ao repositório. A asserção é sobre o
-// NÚMERO DE CHAMADAS (batches()), não totalBids(): um lote vazio contribui 0 bids
-// de qualquer forma, então só a contagem de chamadas distingue o código com guard
-// do código sem guard.
-func TestCreateBid_EmptyBatch_TimerDoesNotFlush(t *testing.T) {
-	t.Setenv("MAX_BATCH_SIZE", "10")
-	t.Setenv("BATCH_INSERT_INTERVAL", "50ms")
-
-	repo := &fakeBidRepo{}
-	_ = biduc.New(repo) // inicia a goroutine; nenhum bid enfileirado
-
-	require.Never(t, func() bool {
-		return len(repo.batches()) > 0
-	}, 300*time.Millisecond, 20*time.Millisecond,
-		"timer must not flush an empty batch")
-}
-
-// TestCreateBid_InvalidUserId_ReturnsBadRequest valida que um userID inválido é
-// barrado antes de enfileirar.
-func TestCreateBid_InvalidUserId_ReturnsBadRequest(t *testing.T) {
-	repo := &fakeBidRepo{}
-	uc := biduc.New(repo)
-
-	err := uc.CreateBid(context.Background(), biduc.BidInputDTO{
-		UserID: "not-a-uuid", AuctionID: uuid.NewString(), Amount: 100})
-	require.NotNil(t, err)
-	require.Equal(t, "bad_request", err.Err)
-	require.Equal(t, 0, repo.totalBids())
-}
-
-func TestCreateBid_NegativeAmount_ReturnsBadRequest(t *testing.T) {
-	repo := &fakeBidRepo{}
-	uc := biduc.New(repo)
-
-	err := uc.CreateBid(context.Background(), biduc.BidInputDTO{
-		UserID: uuid.NewString(), AuctionID: uuid.NewString(), Amount: -5})
-	require.NotNil(t, err)
-	require.Equal(t, "bad_request", err.Err)
-	require.Equal(t, 0, repo.totalBids())
+		err := uc.CreateBid(context.Background(), biduc.BidInputDTO{
+			UserID: uuid.NewString(), AuctionID: uuid.NewString(), Amount: -5})
+		require.NotNil(t, err)
+		require.Equal(t, "bad_request", err.Err)
+		require.Equal(t, 0, repo.totalBids())
+	})
 }

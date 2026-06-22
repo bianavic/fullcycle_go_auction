@@ -50,35 +50,37 @@ func setupMongo(t *testing.T) *mongo.Database {
 	return client.Database("auctions_test")
 }
 
-func TestFindUserByID_Found(t *testing.T) {
+func TestFindUserByID(t *testing.T) {
 	t.Parallel()
 
-	db := setupMongo(t)
-	repo := user.New(db)
-	ctx := context.Background()
+	t.Run("found", func(t *testing.T) {
+		t.Parallel()
+		db := setupMongo(t)
+		repo := user.New(db)
+		ctx := context.Background()
 
-	id := uuid.NewString()
-	require.NoError(t, repo.InsertUserForTest(ctx, id, "Alice"))
+		id := uuid.NewString()
+		require.NoError(t, repo.InsertUserForTest(ctx, id, "Alice"))
 
-	found, err := repo.FindUserByID(ctx, id)
-	require.Nil(t, err)
-	require.Equal(t, id, found.ID)
-	require.Equal(t, "Alice", found.Name)
-}
+		found, err := repo.FindUserByID(ctx, id)
+		require.Nil(t, err)
+		require.Equal(t, id, found.ID)
+		require.Equal(t, "Alice", found.Name)
+	})
 
-// O marcador %! aparece quando há erro de verbo de formato. exemplo: %d -> %s
-func TestFindUserByID_NotFound(t *testing.T) {
-	t.Parallel()
+	// O marcador %! aparece quando há erro de verbo de formato. exemplo: %d -> %s
+	t.Run("not found", func(t *testing.T) {
+		t.Parallel()
+		db := setupMongo(t)
+		repo := user.New(db)
+		ctx := context.Background()
 
-	db := setupMongo(t)
-	repo := user.New(db)
-	ctx := context.Background()
-
-	id := uuid.NewString()
-	found, err := repo.FindUserByID(ctx, id)
-	require.NotNil(t, err)
-	require.Nil(t, found)
-	require.Equal(t, "not_found", err.Err)
-	require.Contains(t, err.Message, id)
-	require.NotContains(t, err.Message, "%!")
+		id := uuid.NewString()
+		found, err := repo.FindUserByID(ctx, id)
+		require.NotNil(t, err)
+		require.Nil(t, found)
+		require.Equal(t, "not_found", err.Err)
+		require.Contains(t, err.Message, id)
+		require.NotContains(t, err.Message, "%!")
+	})
 }
