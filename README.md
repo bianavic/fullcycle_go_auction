@@ -35,26 +35,30 @@ safe under concurrency.
 
 ## Technology Stack
 
-- **Go** 1.26
+- **Go** 1.26.4
 - **Gin** — HTTP web framework
 - **MongoDB** — persistence (official `mongo-driver`)
-- **Zap** — structured logging
+- **Uber Zap** — structured logging
+- **go-playground/validator v10** — request validation
 - **Docker / Docker Compose** — local environment
 - **Testcontainers for Go** — ephemeral MongoDB for integration tests
 
 ## Project Structure
 
 ```
-cmd/auction/            entrypoint (main.go) and .env
-configuration/          logger, MongoDB connection, REST error helpers
+cmd/auction/                entrypoint (main.go)
+configuration/
+  database/mongodb/         MongoDB connection factory
+  logger/                   logger setup
+  rest_err/                 REST error helpers
 internal/
-  entity/               domain entities (auction, bid, user)
+  entity/                   domain entities (auction, bid, user)
   infra/
-    database/           MongoDB repositories (auction, bid, user)
-    api/web/            Gin controllers and validation
-  usecase/              application use cases
-  internal_error/       custom error types
-docs/CHALLENGE.md       original challenge brief (pt-BR)
+    api/web/controller/     Gin controllers (auction, bid, user)
+    database/               MongoDB repositories (auction, bid, user)
+  internal_error/           custom error types
+  usecase/                  application use cases (auction, bid, user)
+docs/CHALLENGE.md           original challenge brief (pt-BR)
 ```
 
 The automatic-close logic lives in `internal/infra/database/auction/create_auction.go`.
@@ -129,18 +133,33 @@ curl http://localhost:8080/auction/<auction-id>
 
 ## Running Tests
 
-The automatic-close behavior is covered by integration tests that spin up an ephemeral MongoDB using
-Testcontainers (a running Docker daemon is required). They are guarded by the `integration` build tag:
+Run unit tests (no external dependencies):
 
 ```bash
-go test -race -tags integration ./...
+go test -race ./...
 ```
 
-The suite (`internal/infra/database/auction/create_auction_test.go`) validates:
+Run integration tests (requires a running Docker daemon — Testcontainers pulls `mongo:7` automatically):
 
-- **Scheduled close** — a created auction starts `Active` and becomes `Completed` after `AUCTION_INTERVAL`.
-- **Background monitor** — an already-expired `Active` auction inserted directly into the database is closed
-  by the monitor on its next sweep.
+```bash
+go test -race -tags integration ./internal/infra/database/...
+```
+
+The integration suite covers:
+
+- **Scheduled close** — `TestCreateAuction_ClosesAutomaticallyAfterInterval`: a created auction starts
+  `Active` and transitions to `Completed` after `AUCTION_INTERVAL`.
+- **Background monitor closes expired auction** — `TestStartAuctionCloser/closes_expired_auction`: an
+  already-expired `Active` auction inserted directly into the database is closed by the monitor.
+- **Completed auction is not reopened** — `TestStartAuctionCloser/completed_auction_is_not_reopened`:
+  the `status = Active` filter makes updates idempotent; a `Completed` auction is never modified.
+- **No expired auctions does nothing** — `TestStartAuctionCloser/no_expired_auctions_does_nothing`:
+  an auction with a future timestamp is never closed by the monitor.
+- **Context cancellation stops monitor** — `TestStartAuctionCloser/stops_on_context_cancel`: after the
+  monitor context is cancelled, newly expired auctions are not closed.
+- **Concurrent closers are idempotent** — `TestCreateAuction_ConcurrentClosers_Idempotent`: when the
+  scheduled closer and the background monitor race to close the same auction, the final status is
+  `Completed` without oscillation.
 
 ## Service Management
 
@@ -167,7 +186,8 @@ docker compose down -v         # also remove the MongoDB data volume
 - [x] A goroutine that detects expired auctions and closes them via update —
   `StartAuctionCloser` / `closeExpiredAuctions` (background monitor), complemented by the per-auction
   `scheduleAuctionClose` / `closeAuction`.
-- [x] A test validating that closing happens automatically — integration tests with Testcontainers.
+- [x] A test validating that closing happens automatically — integration test suite with Testcontainers,
+  covering scheduled close, background monitor, idempotency, context cancellation, and concurrency.
 - [x] Documentation on how to run in dev + Docker/Docker Compose — this README.
 
 ### Beyond the base
