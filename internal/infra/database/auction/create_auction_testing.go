@@ -5,22 +5,22 @@ package auction
 import (
 	"context"
 
-	"fullcycle-auction_go/internal/entity/auction_entity"
+	"fullcycle-auction_go/internal/entity/auction"
 )
 
 // InsertAuctionForTest insere um leilão com campos arbitrários diretamente na
 // coleção, sem disparar scheduleAuctionClose nem a validação da entidade. Permite
 // que testes de integração no pacote externo montem cenários (status, categoria,
-// productName) sem acesso à struct interna AuctionEntityMongo.
+// productName) sem acesso à struct interna AuctionMongo.
 func (ar *AuctionRepository) InsertAuctionForTest(
 	ctx context.Context,
 	id, productName, category, description string,
-	condition auction_entity.ProductCondition,
-	status auction_entity.AuctionStatus,
+	condition auction.ProductCondition,
+	status auction.AuctionStatus,
 	timestamp int64,
 ) error {
-	auctionEntityMongo := &AuctionEntityMongo{
-		Id:          id,
+	auctionMongo := &AuctionMongo{
+		ID:          id,
 		ProductName: productName,
 		Category:    category,
 		Description: description,
@@ -29,7 +29,7 @@ func (ar *AuctionRepository) InsertAuctionForTest(
 		Timestamp:   timestamp,
 	}
 
-	_, err := ar.Collection.InsertOne(ctx, auctionEntityMongo)
+	_, err := ar.Collection.InsertOne(ctx, auctionMongo)
 	return err
 }
 
@@ -41,5 +41,5 @@ func (ar *AuctionRepository) InsertExpiredAuctionForTest(
 	ctx context.Context, id string, pastTimestamp int64) error {
 	return ar.InsertAuctionForTest(ctx, id,
 		"test product", "test category", "test description for integration",
-		auction_entity.New, auction_entity.Active, pastTimestamp)
+		auction.New, auction.Active, pastTimestamp)
 }

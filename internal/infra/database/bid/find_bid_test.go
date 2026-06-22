@@ -58,12 +58,12 @@ func setupMongo(t *testing.T) *mongo.Database {
 // AuctionRepository exigido pelo construtor.
 func newBidRepository(t *testing.T, db *mongo.Database) *bid.BidRepository {
 	t.Helper()
-	return bid.NewBidRepository(db, auction.NewAuctionRepository(context.Background(), db))
+	return bid.New(db, auction.New(context.Background(), db))
 }
 
-// TestFindBidByAuctionId_ReturnsBids valida que apenas os bids do auction filtrado
+// TestFindBidByAuctionID_ReturnsBids valida que apenas os bids do auction filtrado
 // são retornados.
-func TestFindBidByAuctionId_ReturnsBids(t *testing.T) {
+func TestFindBidByAuctionID_ReturnsBids(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
@@ -71,34 +71,34 @@ func TestFindBidByAuctionId_ReturnsBids(t *testing.T) {
 	ctx := context.Background()
 	ts := time.Now().Unix()
 
-	auctionId := uuid.NewString()
-	otherAuctionId := uuid.NewString()
-	require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), auctionId, 100, ts))
-	require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), auctionId, 200, ts))
-	require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), otherAuctionId, 300, ts))
+	auctionID := uuid.NewString()
+	otherAuctionID := uuid.NewString()
+	require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), auctionID, 100, ts))
+	require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), auctionID, 200, ts))
+	require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), otherAuctionID, 300, ts))
 
-	bids, err := repo.FindBidByAuctionId(ctx, auctionId)
+	bids, err := repo.FindBidByAuctionID(ctx, auctionID)
 	require.Nil(t, err)
 	require.Len(t, bids, 2)
 }
 
-// TestFindBidByAuctionId_EmptyWhenNone confirma que um auction sem bids retorna
+// TestFindBidByAuctionID_EmptyWhenNone confirma que um auction sem bids retorna
 // slice vazio sem erro.
-func TestFindBidByAuctionId_EmptyWhenNone(t *testing.T) {
+func TestFindBidByAuctionID_EmptyWhenNone(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
 	repo := newBidRepository(t, db)
 	ctx := context.Background()
 
-	bids, err := repo.FindBidByAuctionId(ctx, uuid.NewString())
+	bids, err := repo.FindBidByAuctionID(ctx, uuid.NewString())
 	require.Nil(t, err)
 	require.Empty(t, bids)
 }
 
-// TestFindWinningBidByAuctionId_ReturnsHighestAmount valida a ordenação descendente
+// TestFindWinningBidByAuctionID_ReturnsHighestAmount valida a ordenação descendente
 // por amount: o vencedor é o maior lance.
-func TestFindWinningBidByAuctionId_ReturnsHighestAmount(t *testing.T) {
+func TestFindWinningBidByAuctionID_ReturnsHighestAmount(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
@@ -106,28 +106,28 @@ func TestFindWinningBidByAuctionId_ReturnsHighestAmount(t *testing.T) {
 	ctx := context.Background()
 	ts := time.Now().Unix()
 
-	auctionId := uuid.NewString()
-	winnerId := uuid.NewString()
-	require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), auctionId, 100, ts))
-	require.NoError(t, repo.InsertBidForTest(ctx, winnerId, uuid.NewString(), auctionId, 300, ts))
-	require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), auctionId, 200, ts))
+	auctionID := uuid.NewString()
+	winnerID := uuid.NewString()
+	require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), auctionID, 100, ts))
+	require.NoError(t, repo.InsertBidForTest(ctx, winnerID, uuid.NewString(), auctionID, 300, ts))
+	require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), auctionID, 200, ts))
 
-	winner, err := repo.FindWinningBidByAuctionId(ctx, auctionId)
+	winner, err := repo.FindWinningBidByAuctionID(ctx, auctionID)
 	require.Nil(t, err)
-	require.Equal(t, winnerId, winner.Id)
+	require.Equal(t, winnerID, winner.ID)
 	require.Equal(t, float64(300), winner.Amount)
 }
 
-// TestFindWinningBidByAuctionId_NotFound confirma que um auction sem bids retorna
+// TestFindWinningBidByAuctionID_NotFound confirma que um auction sem bids retorna
 // erro.
-func TestFindWinningBidByAuctionId_NotFound(t *testing.T) {
+func TestFindWinningBidByAuctionID_NotFound(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
 	repo := newBidRepository(t, db)
 	ctx := context.Background()
 
-	winner, err := repo.FindWinningBidByAuctionId(ctx, uuid.NewString())
+	winner, err := repo.FindWinningBidByAuctionID(ctx, uuid.NewString())
 	require.NotNil(t, err)
 	require.Nil(t, winner)
 }

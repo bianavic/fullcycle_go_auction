@@ -52,34 +52,34 @@ func setupMongo(t *testing.T) *mongo.Database {
 	return client.Database("auctions_test")
 }
 
-// TestFindUserById_Found insere um user e o recupera por ID.
-func TestFindUserById_Found(t *testing.T) {
+// TestFindUserByID_Found insere um user e o recupera por ID.
+func TestFindUserByID_Found(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := user.NewUserRepository(db)
+	repo := user.New(db)
 	ctx := context.Background()
 
 	id := uuid.NewString()
 	require.NoError(t, repo.InsertUserForTest(ctx, id, "Alice"))
 
-	found, err := repo.FindUserById(ctx, id)
+	found, err := repo.FindUserByID(ctx, id)
 	require.Nil(t, err)
-	require.Equal(t, id, found.Id)
+	require.Equal(t, id, found.ID)
 	require.Equal(t, "Alice", found.Name)
 }
 
-// TestFindUserById_NotFound confirma que um ID inexistente retorna NotFoundError.
+// TestFindUserByID_NotFound confirma que um ID inexistente retorna NotFoundError.
 // O marcador %! aparece quando há erro de verbo de formato. exemplo: %d -> %s
-func TestFindUserById_NotFound(t *testing.T) {
+func TestFindUserByID_NotFound(t *testing.T) {
 	t.Parallel()
 
 	db := setupMongo(t)
-	repo := user.NewUserRepository(db)
+	repo := user.New(db)
 	ctx := context.Background()
 
 	id := uuid.NewString()
-	found, err := repo.FindUserById(ctx, id)
+	found, err := repo.FindUserByID(ctx, id)
 	require.NotNil(t, err)
 	require.Nil(t, found)
 	require.Equal(t, "not_found", err.Err)

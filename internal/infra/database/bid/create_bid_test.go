@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"fullcycle-auction_go/internal/entity/auction_entity"
-	"fullcycle-auction_go/internal/entity/bid_entity"
+	"fullcycle-auction_go/internal/entity/auction"
+	"fullcycle-auction_go/internal/entity/bid"
 	"fullcycle-auction_go/internal/infra/database/auction"
 	"fullcycle-auction_go/internal/infra/database/bid"
 
@@ -26,19 +26,19 @@ func TestCreateBid_InsertsValidBids(t *testing.T) {
 	auctionRepo := auction.NewAuctionRepository(ctx, db)
 	bidRepo := bid.NewBidRepository(db, auctionRepo)
 
-	auctionId := uuid.NewString()
-	require.NoError(t, auctionRepo.InsertAuctionForTest(ctx, auctionId,
+	auctionID := uuid.NewString()
+	require.NoError(t, auctionRepo.InsertAuctionForTest(ctx, auctionID,
 		"Live Auction", "Cat", "an active auction for integration",
-		auction_entity.New, auction_entity.Active, time.Now().Unix()))
+		auction.New, auction.Active, time.Now().Unix()))
 
-	bid1, errBid := bid_entity.CreateBid(uuid.NewString(), auctionId, 100)
+	bid1, errBid := bid.CreateBid(uuid.NewString(), auctionID, 100)
 	require.Nil(t, errBid)
-	bid2, errBid := bid_entity.CreateBid(uuid.NewString(), auctionId, 200)
+	bid2, errBid := bid.CreateBid(uuid.NewString(), auctionID, 200)
 	require.Nil(t, errBid)
 
-	require.Nil(t, bidRepo.CreateBid(ctx, []bid_entity.Bid{*bid1, *bid2}))
+	require.Nil(t, bidRepo.CreateBid(ctx, []bid.Bid{*bid1, *bid2}))
 
-	bids, err := bidRepo.FindBidByAuctionId(ctx, auctionId)
+	bids, err := bidRepo.FindBidByAuctionID(ctx, auctionID)
 	require.Nil(t, err)
 	require.Len(t, bids, 2)
 }
@@ -53,17 +53,17 @@ func TestCreateBid_RejectsCompletedAuction(t *testing.T) {
 	auctionRepo := auction.NewAuctionRepository(ctx, db)
 	bidRepo := bid.NewBidRepository(db, auctionRepo)
 
-	auctionId := uuid.NewString()
-	require.NoError(t, auctionRepo.InsertAuctionForTest(ctx, auctionId,
+	auctionID := uuid.NewString()
+	require.NoError(t, auctionRepo.InsertAuctionForTest(ctx, auctionID,
 		"Closed Auction", "Cat", "a completed auction for integration",
-		auction_entity.New, auction_entity.Completed, time.Now().Unix()))
+		auction.New, auction.Completed, time.Now().Unix()))
 
-	bidEntity, errBid := bid_entity.CreateBid(uuid.NewString(), auctionId, 100)
+	bid, errBid := bid.CreateBid(uuid.NewString(), auctionID, 100)
 	require.Nil(t, errBid)
 
-	require.Nil(t, bidRepo.CreateBid(ctx, []bid_entity.Bid{*bidEntity}))
+	require.Nil(t, bidRepo.CreateBid(ctx, []bid.Bid{*bid}))
 
-	bids, err := bidRepo.FindBidByAuctionId(ctx, auctionId)
+	bids, err := bidRepo.FindBidByAuctionID(ctx, auctionID)
 	require.Nil(t, err)
 	require.Empty(t, bids)
 }
