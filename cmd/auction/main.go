@@ -26,7 +26,7 @@ func main() {
 		log.Println("No .env file found; relying on environment variables")
 	}
 
-	databaseConnection, err := mongodb.NewMongoDBConnection(ctx)
+	databaseConnection, err := mongodb.NewConnection(ctx)
 	if err != nil {
 		log.Fatal(err.Error())
 		return
@@ -50,9 +50,9 @@ func main() {
 }
 
 func initDependencies(ctx context.Context, database *mongo.Database) (
-	userController *user.UserController,
-	bidController *bid.BidController,
-	auctionController *auctioncontroller.AuctionController) {
+	userController *user.Controller,
+	bidController *bid.Controller,
+	auctionController *auctioncontroller.Controller) {
 
 	auctionRepository := auctionrepository.New(ctx, database)
 	auctionRepository.StartAuctionCloser(ctx)
@@ -65,7 +65,7 @@ func initDependencies(ctx context.Context, database *mongo.Database) (
 	auctionController = auctioncontroller.New(
 		ctx,
 		auctionuc.New(auctionRepository, bidRepository))
-	bidController = bid.NewBidController(biduc.New(bidRepository))
+	bidController = bid.New(biduc.New(bidRepository))
 
 	return
 }

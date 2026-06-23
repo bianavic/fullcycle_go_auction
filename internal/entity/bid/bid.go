@@ -2,7 +2,7 @@ package bid
 
 import (
 	"context"
-	"fullcycle-auction_go/internal/internal_error"
+	"fullcycle-auction_go/internal/apperr"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,7 +16,7 @@ type Bid struct {
 	Timestamp time.Time
 }
 
-func CreateBid(userID, auctionID string, amount float64) (*Bid, *internal_error.InternalError) {
+func Create(userID, auctionID string, amount float64) (*Bid, *apperr.InternalError) {
 	bid := &Bid{
 		ID:        uuid.New().String(),
 		UserID:    userID,
@@ -32,26 +32,26 @@ func CreateBid(userID, auctionID string, amount float64) (*Bid, *internal_error.
 	return bid, nil
 }
 
-func (b *Bid) Validate() *internal_error.InternalError {
+func (b *Bid) Validate() *apperr.InternalError {
 	if err := uuid.Validate(b.UserID); err != nil {
-		return internal_error.NewBadRequestError("UserID is not a valid id")
+		return apperr.NewBadRequestError("UserID is not a valid id")
 	} else if err := uuid.Validate(b.AuctionID); err != nil {
-		return internal_error.NewBadRequestError("AuctionID is not a valid id")
+		return apperr.NewBadRequestError("AuctionID is not a valid id")
 	} else if b.Amount <= 0 {
-		return internal_error.NewBadRequestError("Amount is not a valid value")
+		return apperr.NewBadRequestError("Amount is not a valid value")
 	}
 
 	return nil
 }
 
-type BidRepository interface {
-	CreateBid(
+type Repository interface {
+	Create(
 		ctx context.Context,
-		bidEntities []Bid) *internal_error.InternalError
+		bidEntities []Bid) *apperr.InternalError
 
-	FindBidByAuctionID(
-		ctx context.Context, auctionID string) ([]Bid, *internal_error.InternalError)
+	FindByAuctionID(
+		ctx context.Context, auctionID string) ([]Bid, *apperr.InternalError)
 
-	FindWinningBidByAuctionID(
-		ctx context.Context, auctionID string) (*Bid, *internal_error.InternalError)
+	FindWinningByAuctionID(
+		ctx context.Context, auctionID string) (*Bid, *apperr.InternalError)
 }

@@ -10,13 +10,13 @@ import (
 )
 
 const (
-	MONGODB_URL = "MONGODB_URL"
-	MONGODB_DB  = "MONGODB_DB"
+	mongoDBURL = "MONGODB_URL"
+	mongoDBDB  = "MONGODB_DB"
 )
 
-func NewMongoDBConnection(ctx context.Context) (*mongo.Database, error) {
-	mongoURL := os.Getenv(MONGODB_URL)
-	mongoDatabase := os.Getenv(MONGODB_DB)
+func NewConnection(ctx context.Context) (*mongo.Database, error) {
+	mongoURL := os.Getenv(mongoDBURL)
+	mongoDatabase := os.Getenv(mongoDBDB)
 
 	client, err := mongo.Connect(
 		ctx, options.Client().ApplyURI(mongoURL))

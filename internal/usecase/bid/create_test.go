@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"fullcycle-auction_go/internal/entity/bid"
-	"fullcycle-auction_go/internal/internal_error"
+	"fullcycle-auction_go/internal/apperr"
 	biduc "fullcycle-auction_go/internal/usecase/bid"
 
 	"github.com/google/uuid"
@@ -19,15 +19,15 @@ import (
 type fakeBidRepo struct {
 	mu             sync.Mutex
 	createdBatches [][]bid.Bid
-	createErr      *internal_error.InternalError
+	createErr      *apperr.InternalError
 
 	findBids   []bid.Bid
-	findErr    *internal_error.InternalError
+	findErr    *apperr.InternalError
 	winning    *bid.Bid
-	winningErr *internal_error.InternalError
+	winningErr *apperr.InternalError
 }
 
-func (f *fakeBidRepo) CreateBid(ctx context.Context, bids []bid.Bid) *internal_error.InternalError {
+func (f *fakeBidRepo) Create(ctx context.Context, bids []bid.Bid) *apperr.InternalError {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	batch := make([]bid.Bid, len(bids))
@@ -36,11 +36,11 @@ func (f *fakeBidRepo) CreateBid(ctx context.Context, bids []bid.Bid) *internal_e
 	return f.createErr
 }
 
-func (f *fakeBidRepo) FindBidByAuctionID(ctx context.Context, auctionID string) ([]bid.Bid, *internal_error.InternalError) {
+func (f *fakeBidRepo) FindByAuctionID(ctx context.Context, auctionID string) ([]bid.Bid, *apperr.InternalError) {
 	return f.findBids, f.findErr
 }
 
-func (f *fakeBidRepo) FindWinningBidByAuctionID(ctx context.Context, auctionID string) (*bid.Bid, *internal_error.InternalError) {
+func (f *fakeBidRepo) FindWinningByAuctionID(ctx context.Context, auctionID string) (*bid.Bid, *apperr.InternalError) {
 	return f.winning, f.winningErr
 }
 
@@ -72,9 +72,9 @@ func TestCreateBid_FlushBehavior(t *testing.T) {
 		ctx := context.Background()
 
 		auctionID := uuid.NewString()
-		require.Nil(t, uc.CreateBid(ctx, biduc.BidInputDTO{
+		require.Nil(t, uc.CreateBid(ctx, biduc.InputDTO{
 			UserID: uuid.NewString(), AuctionID: auctionID, Amount: 100}))
-		require.Nil(t, uc.CreateBid(ctx, biduc.BidInputDTO{
+		require.Nil(t, uc.CreateBid(ctx, biduc.InputDTO{
 			UserID: uuid.NewString(), AuctionID: auctionID, Amount: 200}))
 
 		require.Eventually(t, func() bool {
@@ -94,7 +94,7 @@ func TestCreateBid_FlushBehavior(t *testing.T) {
 		uc := biduc.New(repo)
 		ctx := context.Background()
 
-		require.Nil(t, uc.CreateBid(ctx, biduc.BidInputDTO{
+		require.Nil(t, uc.CreateBid(ctx, biduc.InputDTO{
 			UserID: uuid.NewString(), AuctionID: uuid.NewString(), Amount: 100}))
 
 		require.Eventually(t, func() bool {
@@ -129,7 +129,7 @@ func TestCreateBid_Validation(t *testing.T) {
 		repo := &fakeBidRepo{}
 		uc := biduc.New(repo)
 
-		err := uc.CreateBid(context.Background(), biduc.BidInputDTO{
+		err := uc.CreateBid(context.Background(), biduc.InputDTO{
 			UserID: "not-a-uuid", AuctionID: uuid.NewString(), Amount: 100})
 		require.NotNil(t, err)
 		require.Equal(t, "bad_request", err.Err)
@@ -141,7 +141,7 @@ func TestCreateBid_Validation(t *testing.T) {
 		repo := &fakeBidRepo{}
 		uc := biduc.New(repo)
 
-		err := uc.CreateBid(context.Background(), biduc.BidInputDTO{
+		err := uc.CreateBid(context.Background(), biduc.InputDTO{
 			UserID: uuid.NewString(), AuctionID: uuid.NewString(), Amount: -5})
 		require.NotNil(t, err)
 		require.Equal(t, "bad_request", err.Err)

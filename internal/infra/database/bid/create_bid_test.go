@@ -31,14 +31,14 @@ func TestCreateBid(t *testing.T) {
 			"Live Auction", "Cat", "an active auction for integration",
 			auction.New, auction.Active, time.Now().Unix()))
 
-		bid1, errBid := bid.CreateBid(uuid.NewString(), auctionID, 100)
+		bid1, errBid := bid.Create(uuid.NewString(), auctionID, 100)
 		require.Nil(t, errBid)
-		bid2, errBid := bid.CreateBid(uuid.NewString(), auctionID, 200)
+		bid2, errBid := bid.Create(uuid.NewString(), auctionID, 200)
 		require.Nil(t, errBid)
 
-		require.Nil(t, bidRepo.CreateBid(ctx, []bid.Bid{*bid1, *bid2}))
+		require.Nil(t, bidRepo.Create(ctx, []bid.Bid{*bid1, *bid2}))
 
-		bids, err := bidRepo.FindBidByAuctionID(ctx, auctionID)
+		bids, err := bidRepo.FindByAuctionID(ctx, auctionID)
 		require.Nil(t, err)
 		require.Len(t, bids, 2)
 	})
@@ -56,12 +56,12 @@ func TestCreateBid(t *testing.T) {
 			"Closed Auction", "Cat", "a completed auction for integration",
 			auction.New, auction.Completed, time.Now().Unix()))
 
-		bidEntity, errBid := bid.CreateBid(uuid.NewString(), auctionID, 100)
+		bidEntity, errBid := bid.Create(uuid.NewString(), auctionID, 100)
 		require.Nil(t, errBid)
 
-		require.Nil(t, bidRepo.CreateBid(ctx, []bid.Bid{*bidEntity}))
+		require.Nil(t, bidRepo.Create(ctx, []bid.Bid{*bidEntity}))
 
-		bids, err := bidRepo.FindBidByAuctionID(ctx, auctionID)
+		bids, err := bidRepo.FindByAuctionID(ctx, auctionID)
 		require.Nil(t, err)
 		require.Empty(t, bids)
 	})

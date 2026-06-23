@@ -4,19 +4,19 @@ import (
 	"context"
 	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/entity/bid"
-	"fullcycle-auction_go/internal/internal_error"
+	"fullcycle-auction_go/internal/apperr"
 	"os"
 	"strconv"
 	"time"
 )
 
-type BidInputDTO struct {
+type InputDTO struct {
 	UserID    string  `json:"user_id"`
 	AuctionID string  `json:"auction_id"`
 	Amount    float64 `json:"amount"`
 }
 
-type BidOutputDTO struct {
+type OutputDTO struct {
 	ID        string    `json:"id"`
 	UserID    string    `json:"user_id"`
 	AuctionID string    `json:"auction_id"`
@@ -25,7 +25,7 @@ type BidOutputDTO struct {
 }
 
 type useCase struct {
-	BidRepository bid.BidRepository
+	BidRepository bid.Repository
 
 	timer               *time.Timer
 	maxBatchSize        int
@@ -37,7 +37,7 @@ type useCase struct {
 	batch []bid.Bid
 }
 
-func New(bidRepository bid.BidRepository) UseCase {
+func New(bidRepository bid.Repository) UseCase {
 	batchInsertInterval := getBatchInsertInterval()
 	maxBatchSize := getMaxBatchSize()
 
@@ -57,13 +57,13 @@ func New(bidRepository bid.BidRepository) UseCase {
 type UseCase interface {
 	CreateBid(
 		ctx context.Context,
-		bidInputDTO BidInputDTO) *internal_error.InternalError
+		bidInputDTO InputDTO) *apperr.InternalError
 
 	FindWinningBidByAuctionID(
-		ctx context.Context, auctionID string) (*BidOutputDTO, *internal_error.InternalError)
+		ctx context.Context, auctionID string) (*OutputDTO, *apperr.InternalError)
 
 	FindBidByAuctionID(
-		ctx context.Context, auctionID string) ([]BidOutputDTO, *internal_error.InternalError)
+		ctx context.Context, auctionID string) ([]OutputDTO, *apperr.InternalError)
 }
 
 func (uc *useCase) triggerCreateRoutine(ctx context.Context) {
@@ -75,7 +75,7 @@ func (uc *useCase) triggerCreateRoutine(ctx context.Context) {
 			case bid, ok := <-uc.bidChannel:
 				if !ok {
 					if len(uc.batch) > 0 {
-						if err := uc.BidRepository.CreateBid(ctx, uc.batch); err != nil {
+						if err := uc.BidRepository.Create(ctx, uc.batch); err != nil {
 							logger.Error("error trying to process bid batch list", err)
 						}
 					}
@@ -85,7 +85,7 @@ func (uc *useCase) triggerCreateRoutine(ctx context.Context) {
 				uc.batch = append(uc.batch, bid)
 
 				if len(uc.batch) >= uc.maxBatchSize {
-					if err := uc.BidRepository.CreateBid(ctx, uc.batch); err != nil {
+					if err := uc.BidRepository.Create(ctx, uc.batch); err != nil {
 						logger.Error("error trying to process bid batch list", err)
 					}
 
@@ -104,7 +104,7 @@ func (uc *useCase) triggerCreateRoutine(ctx context.Context) {
 				}
 			case <-uc.timer.C:
 				if len(uc.batch) > 0 {
-					if err := uc.BidRepository.CreateBid(ctx, uc.batch); err != nil {
+					if err := uc.BidRepository.Create(ctx, uc.batch); err != nil {
 						logger.Error("error trying to process bid batch list", err)
 					}
 					uc.batch = nil
@@ -117,9 +117,9 @@ func (uc *useCase) triggerCreateRoutine(ctx context.Context) {
 
 func (uc *useCase) CreateBid(
 	ctx context.Context,
-	bidInputDTO BidInputDTO) *internal_error.InternalError {
+	bidInputDTO InputDTO) *apperr.InternalError {
 
-	newBid, err := bid.CreateBid(bidInputDTO.UserID, bidInputDTO.AuctionID, bidInputDTO.Amount)
+	newBid, err := bid.Create(bidInputDTO.UserID, bidInputDTO.AuctionID, bidInputDTO.Amount)
 	if err != nil {
 		return err
 	}

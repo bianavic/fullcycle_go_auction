@@ -28,7 +28,7 @@ func TestFindAuctionByID(t *testing.T) {
 			"Vintage Clock", "Decor", "A beautiful vintage wall clock",
 			auction.New, auction.Active, time.Now().Unix()))
 
-		found, err := repo.FindAuctionByID(ctx, id)
+		found, err := repo.FindByID(ctx, id)
 		require.Nil(t, err)
 		require.Equal(t, id, found.ID)
 		require.Equal(t, "Vintage Clock", found.ProductName)
@@ -42,7 +42,7 @@ func TestFindAuctionByID(t *testing.T) {
 		ctx := context.Background()
 		repo := auctiondb.New(ctx, db)
 
-		found, err := repo.FindAuctionByID(ctx, uuid.NewString())
+		found, err := repo.FindByID(ctx, uuid.NewString())
 		require.NotNil(t, err)
 		require.Nil(t, found)
 	})
@@ -69,7 +69,7 @@ func TestFindAuctions(t *testing.T) {
 			"Completed Item", "Cat", "a completed auction for integration",
 			auction.New, auction.Completed, ts))
 
-		completed, err := repo.FindAuctions(ctx, auction.Completed, "", "")
+		completed, err := repo.FindAll(ctx, auction.Completed, "", "")
 		require.Nil(t, err)
 		require.Len(t, completed, 1)
 		require.Equal(t, completedID, completed[0].ID)
@@ -90,7 +90,7 @@ func TestFindAuctions(t *testing.T) {
 			"Vintage Clock", "Decor", "a decor auction for integration",
 			auction.New, auction.Active, ts))
 
-		result, err := repo.FindAuctions(ctx, 0, "Art", "")
+		result, err := repo.FindAll(ctx, 0, "Art", "")
 		require.Nil(t, err)
 		require.Len(t, result, 1)
 		require.Equal(t, artID, result[0].ID)
@@ -114,7 +114,7 @@ func TestFindAuctions(t *testing.T) {
 			"Oil Painting", "Art", "a painting auction for integration",
 			auction.New, auction.Active, ts))
 
-		result, err := repo.FindAuctions(ctx, 0, "", "clock")
+		result, err := repo.FindAll(ctx, 0, "", "clock")
 		require.Nil(t, err)
 		require.Len(t, result, 1)
 		require.Equal(t, clockID, result[0].ID)
@@ -133,7 +133,7 @@ func TestFindAuctions(t *testing.T) {
 				auction.New, auction.Active, ts))
 		}
 
-		result, err := repo.FindAuctions(ctx, 0, "", "")
+		result, err := repo.FindAll(ctx, 0, "", "")
 		require.Nil(t, err)
 		require.Len(t, result, 3)
 	})

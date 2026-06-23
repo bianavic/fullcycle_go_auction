@@ -62,7 +62,7 @@ func TestFindUserByID(t *testing.T) {
 		id := uuid.NewString()
 		require.NoError(t, repo.InsertUserForTest(ctx, id, "Alice"))
 
-		found, err := repo.FindUserByID(ctx, id)
+		found, err := repo.FindByID(ctx, id)
 		require.Nil(t, err)
 		require.Equal(t, id, found.ID)
 		require.Equal(t, "Alice", found.Name)
@@ -76,7 +76,7 @@ func TestFindUserByID(t *testing.T) {
 		ctx := context.Background()
 
 		id := uuid.NewString()
-		found, err := repo.FindUserByID(ctx, id)
+		found, err := repo.FindByID(ctx, id)
 		require.NotNil(t, err)
 		require.Nil(t, found)
 		require.Equal(t, "not_found", err.Err)

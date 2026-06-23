@@ -2,19 +2,19 @@ package bid
 
 import (
 	"context"
-	"fullcycle-auction_go/internal/internal_error"
+	"fullcycle-auction_go/internal/apperr"
 )
 
 func (uc *useCase) FindBidByAuctionID(
-	ctx context.Context, auctionID string) ([]BidOutputDTO, *internal_error.InternalError) {
-	bidList, err := uc.BidRepository.FindBidByAuctionID(ctx, auctionID)
+	ctx context.Context, auctionID string) ([]OutputDTO, *apperr.InternalError) {
+	bidList, err := uc.BidRepository.FindByAuctionID(ctx, auctionID)
 	if err != nil {
 		return nil, err
 	}
 
-	var bidOutputList []BidOutputDTO
+	var bidOutputList []OutputDTO
 	for _, bid := range bidList {
-		bidOutputList = append(bidOutputList, BidOutputDTO{
+		bidOutputList = append(bidOutputList, OutputDTO{
 			ID:        bid.ID,
 			UserID:    bid.UserID,
 			AuctionID: bid.AuctionID,
@@ -27,13 +27,13 @@ func (uc *useCase) FindBidByAuctionID(
 }
 
 func (uc *useCase) FindWinningBidByAuctionID(
-	ctx context.Context, auctionID string) (*BidOutputDTO, *internal_error.InternalError) {
-	bid, err := uc.BidRepository.FindWinningBidByAuctionID(ctx, auctionID)
+	ctx context.Context, auctionID string) (*OutputDTO, *apperr.InternalError) {
+	bid, err := uc.BidRepository.FindWinningByAuctionID(ctx, auctionID)
 	if err != nil {
 		return nil, err
 	}
 
-	bidOutput := &BidOutputDTO{
+	bidOutput := &OutputDTO{
 		ID:        bid.ID,
 		UserID:    bid.UserID,
 		AuctionID: bid.AuctionID,

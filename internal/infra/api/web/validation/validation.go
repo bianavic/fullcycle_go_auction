@@ -3,7 +3,7 @@ package validation
 import (
 	"encoding/json"
 	"errors"
-	"fullcycle-auction_go/configuration/rest_err"
+	"fullcycle-auction_go/configuration/httperr"
 
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/locales/en"
@@ -26,24 +26,24 @@ func init() {
 	}
 }
 
-func ValidateErr(validation_err error) *rest_err.RestErr {
+func ValidateErr(validation_err error) *httperr.RestErr {
 	var jsonErr *json.UnmarshalTypeError
 	var jsonValidation validator.ValidationErrors
 
 	if errors.As(validation_err, &jsonErr) {
-		return rest_err.NewNotFoundError("Invalid type error")
+		return httperr.NewNotFoundError("Invalid type error")
 	} else if errors.As(validation_err, &jsonValidation) {
-		errorCauses := []rest_err.Causes{}
+		errorCauses := []httperr.Causes{}
 
 		for _, e := range jsonValidation {
-			errorCauses = append(errorCauses, rest_err.Causes{
+			errorCauses = append(errorCauses, httperr.Causes{
 				Field:   e.Field(),
 				Message: e.Translate(translator),
 			})
 		}
 
-		return rest_err.NewBadRequestError("Invalid field values", errorCauses...)
+		return httperr.NewBadRequestError("Invalid field values", errorCauses...)
 	} else {
-		return rest_err.NewBadRequestError("Error trying to convert fields")
+		return httperr.NewBadRequestError("Error trying to convert fields")
 	}
 }

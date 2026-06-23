@@ -52,9 +52,9 @@ func setupMongo(t *testing.T) *mongo.Database {
 	return client.Database("auctions_test")
 }
 
-// newBidRepository monta um BidRepository ligado ao db informado, com o
+// newBidRepository monta um Repository ligado ao db informado, com o
 // AuctionRepository exigido pelo construtor.
-func newBidRepository(t *testing.T, db *mongo.Database) *bid.BidRepository {
+func newBidRepository(t *testing.T, db *mongo.Database) *bid.Repository {
 	t.Helper()
 	return bid.New(db, auction.New(context.Background(), db))
 }
@@ -75,7 +75,7 @@ func TestFindBidByAuctionID(t *testing.T) {
 		require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), auctionID, 200, ts))
 		require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), otherAuctionID, 300, ts))
 
-		bids, err := repo.FindBidByAuctionID(ctx, auctionID)
+		bids, err := repo.FindByAuctionID(ctx, auctionID)
 		require.Nil(t, err)
 		require.Len(t, bids, 2)
 	})
@@ -86,7 +86,7 @@ func TestFindBidByAuctionID(t *testing.T) {
 		repo := newBidRepository(t, db)
 		ctx := context.Background()
 
-		bids, err := repo.FindBidByAuctionID(ctx, uuid.NewString())
+		bids, err := repo.FindByAuctionID(ctx, uuid.NewString())
 		require.Nil(t, err)
 		require.Empty(t, bids)
 	})
@@ -108,7 +108,7 @@ func TestFindWinningBidByAuctionID(t *testing.T) {
 		require.NoError(t, repo.InsertBidForTest(ctx, winnerID, uuid.NewString(), auctionID, 300, ts))
 		require.NoError(t, repo.InsertBidForTest(ctx, uuid.NewString(), uuid.NewString(), auctionID, 200, ts))
 
-		winner, err := repo.FindWinningBidByAuctionID(ctx, auctionID)
+		winner, err := repo.FindWinningByAuctionID(ctx, auctionID)
 		require.Nil(t, err)
 		require.Equal(t, winnerID, winner.ID)
 		require.Equal(t, float64(300), winner.Amount)
@@ -120,7 +120,7 @@ func TestFindWinningBidByAuctionID(t *testing.T) {
 		repo := newBidRepository(t, db)
 		ctx := context.Background()
 
-		winner, err := repo.FindWinningBidByAuctionID(ctx, uuid.NewString())
+		winner, err := repo.FindWinningByAuctionID(ctx, uuid.NewString())
 		require.NotNil(t, err)
 		require.Nil(t, winner)
 	})

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"fullcycle-auction_go/internal/entity/bid"
-	"fullcycle-auction_go/internal/internal_error"
+	"fullcycle-auction_go/internal/apperr"
 	biduc "fullcycle-auction_go/internal/usecase/bid"
 
 	"github.com/google/uuid"
@@ -38,7 +38,7 @@ func TestFindBidByAuctionID(t *testing.T) {
 	})
 
 	t.Run("repository error", func(t *testing.T) {
-		repo := &fakeBidRepo{findErr: internal_error.NewInternalServerError("unexpected error")}
+		repo := &fakeBidRepo{findErr: apperr.NewInternalServerError("unexpected error")}
 		uc := biduc.New(repo)
 
 		out, err := uc.FindBidByAuctionID(context.Background(), uuid.NewString())
@@ -71,7 +71,7 @@ func TestFindWinningBidByAuctionID(t *testing.T) {
 	})
 
 	t.Run("repository error", func(t *testing.T) {
-		repo := &fakeBidRepo{winningErr: internal_error.NewInternalServerError("unexpected error")}
+		repo := &fakeBidRepo{winningErr: apperr.NewInternalServerError("unexpected error")}
 		uc := biduc.New(repo)
 
 		out, err := uc.FindWinningBidByAuctionID(context.Background(), uuid.NewString())

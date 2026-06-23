@@ -6,47 +6,47 @@ import (
 	"fmt"
 	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/entity/user"
-	"fullcycle-auction_go/internal/internal_error"
+	"fullcycle-auction_go/internal/apperr"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type UserMongo struct {
+type document struct {
 	ID   string `bson:"_id"`
 	Name string `bson:"name"`
 }
 
-type UserRepository struct {
+type Repository struct {
 	Collection *mongo.Collection
 }
 
-func New(database *mongo.Database) *UserRepository {
-	return &UserRepository{
+func New(database *mongo.Database) *Repository {
+	return &Repository{
 		Collection: database.Collection("users"),
 	}
 }
 
-func (ur *UserRepository) FindUserByID(
-	ctx context.Context, userID string) (*user.User, *internal_error.InternalError) {
+func (ur *Repository) FindByID(
+	ctx context.Context, userID string) (*user.User, *apperr.InternalError) {
 	filter := bson.M{"_id": userID}
 
-	var userMongo UserMongo
-	err := ur.Collection.FindOne(ctx, filter).Decode(&userMongo)
+	var doc document
+	err := ur.Collection.FindOne(ctx, filter).Decode(&doc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			logger.Error(fmt.Sprintf("User not found with this id = %s", userID), err)
-			return nil, internal_error.NewNotFoundError(
+			return nil, apperr.NewNotFoundError(
 				fmt.Sprintf("User not found with this id = %s", userID))
 		}
 
 		logger.Error("Error trying to find user by userID", err)
-		return nil, internal_error.NewInternalServerError("Error trying to find user by userID")
+		return nil, apperr.NewInternalServerError("Error trying to find user by userID")
 	}
 
 	user := &user.User{
-		ID:   userMongo.ID,
-		Name: userMongo.Name,
+		ID:   doc.ID,
+		Name: doc.Name,
 	}
 
 	return user, nil

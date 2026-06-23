@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/entity/auction"
-	"fullcycle-auction_go/internal/internal_error"
+	"fullcycle-auction_go/internal/apperr"
 	"os"
 	"sync"
 	"time"
@@ -14,16 +14,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type AuctionMongo struct {
+type document struct {
 	ID          string                   `bson:"_id"`
 	ProductName string                   `bson:"product_name"`
 	Category    string                   `bson:"category"`
 	Description string                   `bson:"description"`
 	Condition   auction.ProductCondition `bson:"condition"`
-	Status      auction.AuctionStatus    `bson:"status"`
+	Status      auction.Status           `bson:"status"`
 	Timestamp   int64                    `bson:"timestamp"`
 }
-type AuctionRepository struct {
+type Repository struct {
 	Collection      *mongo.Collection
 	auctionInterval time.Duration
 	auctionMutex    *sync.Mutex
@@ -32,8 +32,8 @@ type AuctionRepository struct {
 	closerCtx context.Context
 }
 
-func New(ctx context.Context, database *mongo.Database) *AuctionRepository {
-	return &AuctionRepository{
+func New(ctx context.Context, database *mongo.Database) *Repository {
+	return &Repository{
 		Collection:      database.Collection("auctions"),
 		auctionInterval: getAuctionInterval(),
 		auctionMutex:    &sync.Mutex{},
@@ -41,10 +41,10 @@ func New(ctx context.Context, database *mongo.Database) *AuctionRepository {
 	}
 }
 
-func (ar *AuctionRepository) CreateAuction(
+func (ar *Repository) Create(
 	ctx context.Context,
-	auction *auction.Auction) *internal_error.InternalError {
-	auctionMongo := &AuctionMongo{
+	auction *auction.Auction) *apperr.InternalError {
+	doc := &document{
 		ID:          auction.ID,
 		ProductName: auction.ProductName,
 		Category:    auction.Category,
@@ -53,15 +53,15 @@ func (ar *AuctionRepository) CreateAuction(
 		Status:      auction.Status,
 		Timestamp:   auction.Timestamp.Unix(),
 	}
-	_, err := ar.Collection.InsertOne(ctx, auctionMongo)
+	_, err := ar.Collection.InsertOne(ctx, doc)
 	if err != nil {
 		logger.Error("Error trying to insert auction", err)
-		return internal_error.NewInternalServerError("Error trying to insert auction")
+		return apperr.NewInternalServerError("Error trying to insert auction")
 	}
 
 	// agenda o fechamento pontual deste leilão após o intervalo configurado.
 	// A goroutine sobrevive ao ciclo de vida do request HTTP.
-	go ar.scheduleAuctionClose(auctionMongo.ID)
+	go ar.scheduleAuctionClose(doc.ID)
 
 	return nil
 }
@@ -71,7 +71,7 @@ func (ar *AuctionRepository) CreateAuction(
 // O timer respeita closerCtx para permitir shutdown ordenado: se o contexto
 // for cancelado antes do intervalo, a goroutine retorna sem fechar o leilão
 // (a varredura do StartAuctionCloser cobre o caso após restart).
-func (ar *AuctionRepository) scheduleAuctionClose(auctionID string) {
+func (ar *Repository) scheduleAuctionClose(auctionID string) {
 	timer := time.NewTimer(ar.auctionInterval)
 	defer timer.Stop()
 
@@ -91,7 +91,7 @@ func (ar *AuctionRepository) scheduleAuctionClose(auctionID string) {
 // fechado) e evita corridas entre a goroutine pontual e o monitor em background.
 // Usa um contexto próprio, pois o contexto do request original já pode ter sido
 // cancelado quando o fechamento ocorre.
-func (ar *AuctionRepository) closeAuction(auctionID string) *internal_error.InternalError {
+func (ar *Repository) closeAuction(auctionID string) *apperr.InternalError {
 	ar.auctionMutex.Lock()
 	defer ar.auctionMutex.Unlock()
 
@@ -103,7 +103,7 @@ func (ar *AuctionRepository) closeAuction(auctionID string) *internal_error.Inte
 
 	if _, err := ar.Collection.UpdateOne(ctx, filter, update); err != nil {
 		logger.Error("Error trying to close auction", err)
-		return internal_error.NewInternalServerError("Error trying to close auction")
+		return apperr.NewInternalServerError("Error trying to close auction")
 	}
 
 	return nil
@@ -113,7 +113,7 @@ func (ar *AuctionRepository) closeAuction(auctionID string) *internal_error.Inte
 // de leilões vencidos ainda marcados como Active e os fecha em lote. Funciona como
 // rede de segurança para leilões cujo fechamento agendado foi perdido (por exemplo,
 // após um restart do processo). O monitor encerra quando o contexto é cancelado.
-func (ar *AuctionRepository) StartAuctionCloser(ctx context.Context) {
+func (ar *Repository) StartAuctionCloser(ctx context.Context) {
 	ticker := time.NewTicker(getCloserInterval())
 
 	go func() {
@@ -132,7 +132,7 @@ func (ar *AuctionRepository) StartAuctionCloser(ctx context.Context) {
 // closeExpiredAuctions fecha todos os leilões Active cujo tempo já expirou
 // (timestamp + auctionInterval < agora). O filtro por status=Active mantém a
 // operação idempotente e segura quando concorre com o fechamento agendado.
-func (ar *AuctionRepository) closeExpiredAuctions(ctx context.Context) *internal_error.InternalError {
+func (ar *Repository) closeExpiredAuctions(ctx context.Context) *apperr.InternalError {
 	ar.auctionMutex.Lock()
 	defer ar.auctionMutex.Unlock()
 
@@ -146,7 +146,7 @@ func (ar *AuctionRepository) closeExpiredAuctions(ctx context.Context) *internal
 
 	if _, err := ar.Collection.UpdateMany(ctx, filter, update); err != nil {
 		logger.Error("Error trying to close expired auctions", err)
-		return internal_error.NewInternalServerError("Error trying to close expired auctions")
+		return apperr.NewInternalServerError("Error trying to close expired auctions")
 	}
 
 	return nil

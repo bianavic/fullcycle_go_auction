@@ -66,16 +66,16 @@ func setupMongo(t *testing.T) *mongo.Database {
 
 func waitForStatus(
 	t *testing.T,
-	repo *auctiondb.AuctionRepository,
+	repo *auctiondb.Repository,
 	id string,
-	want auction.AuctionStatus,
+	want auction.Status,
 	timeout time.Duration,
 ) {
 	t.Helper()
 	ctx := context.Background()
 
 	require.Eventually(t, func() bool {
-		found, err := repo.FindAuctionByID(ctx, id)
+		found, err := repo.FindByID(ctx, id)
 		return err == nil && found.Status == want
 	}, timeout, 100*time.Millisecond,
 		"auction %s did not reach status %d within %s", id, want, timeout)
@@ -88,14 +88,14 @@ func TestCreateAuction_ClosesAutomaticallyAfterInterval(t *testing.T) {
 	ctx := context.Background()
 	repo := auctiondb.New(ctx, db)
 
-	auctionEntity, errEntity := auction.CreateAuction(
+	auctionEntity, errEntity := auction.Create(
 		"Vintage Clock", "Decor", "A beautiful vintage wall clock", auction.New)
 	require.Nil(t, errEntity, "failed to build auction entity")
 
-	require.Nil(t, repo.CreateAuction(ctx, auctionEntity), "failed to create auction")
+	require.Nil(t, repo.Create(ctx, auctionEntity), "failed to create auction")
 
 	t.Run("initial status is Active", func(t *testing.T) {
-		found, err := repo.FindAuctionByID(ctx, auctionEntity.ID)
+		found, err := repo.FindByID(ctx, auctionEntity.ID)
 		require.Nil(t, err, "failed to find auction")
 		require.Equal(t, auction.Active, found.Status)
 	})
@@ -145,7 +145,7 @@ func TestStartAuctionCloser(t *testing.T) {
 		repo.StartAuctionCloser(monitorCtx)
 
 		require.Never(t, func() bool {
-			found, err := repo.FindAuctionByID(ctx, id)
+			found, err := repo.FindByID(ctx, id)
 			return err != nil || found.Status != auction.Completed
 		}, 3*time.Second, 200*time.Millisecond,
 			"auction %s was modified after already being Completed", id)
@@ -170,7 +170,7 @@ func TestStartAuctionCloser(t *testing.T) {
 		repo.StartAuctionCloser(monitorCtx)
 
 		require.Never(t, func() bool {
-			found, err := repo.FindAuctionByID(ctx, id)
+			found, err := repo.FindByID(ctx, id)
 			return err != nil || found.Status != auction.Active
 		}, 3*time.Second, 200*time.Millisecond,
 			"auction %s status changed unexpectedly", id)
@@ -201,7 +201,7 @@ func TestStartAuctionCloser(t *testing.T) {
 		require.NoError(t, repo.InsertExpiredAuctionForTest(ctx, stoppedID, time.Now().Add(-time.Hour).Unix()))
 
 		require.Never(t, func() bool {
-			found, err := repo.FindAuctionByID(ctx, stoppedID)
+			found, err := repo.FindByID(ctx, stoppedID)
 			return err == nil && found.Status == auction.Completed
 		}, 3*time.Second, 200*time.Millisecond,
 			"auction %s should remain Active after the closer context was cancelled", stoppedID)
@@ -219,11 +219,11 @@ func TestCreateAuction_ConcurrentClosers_Idempotent(t *testing.T) {
 	ctx := context.Background()
 	repo := auctiondb.New(ctx, db)
 
-	auctionEntity, err := auction.CreateAuction(
+	auctionEntity, err := auction.Create(
 		"Concurrent Clock", "Decor", "A beautiful vintage wall clock", auction.New)
 	require.Nil(t, err)
 	// CreateAuction dispara scheduleAuctionClose (fecha após AUCTION_INTERVAL=1s).
-	require.Nil(t, repo.CreateAuction(ctx, auctionEntity))
+	require.Nil(t, repo.Create(ctx, auctionEntity))
 
 	// Monitor também tentará fechar o leilão após o ticket de 1s.
 	monitorCtx, cancel := context.WithCancel(context.Background())
@@ -235,7 +235,7 @@ func TestCreateAuction_ConcurrentClosers_Idempotent(t *testing.T) {
 
 	// Após Completed, o status não deve oscilar: o segundo fechador deve ser no-op.
 	require.Never(t, func() bool {
-		found, err := repo.FindAuctionByID(ctx, auctionEntity.ID)
+		found, err := repo.FindByID(ctx, auctionEntity.ID)
 		return err != nil || found.Status != auction.Completed
 	}, 3*time.Second, 200*time.Millisecond,
 		"auction %s changed status after becoming Completed", auctionEntity.ID)

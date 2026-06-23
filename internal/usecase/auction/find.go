@@ -4,18 +4,18 @@ import (
 	"context"
 	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/entity/auction"
-	"fullcycle-auction_go/internal/internal_error"
+	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/usecase/bid"
 )
 
 func (uc *useCase) FindAuctionByID(
-	ctx context.Context, id string) (*AuctionOutputDTO, *internal_error.InternalError) {
-	found, err := uc.auctionRepository.FindAuctionByID(ctx, id)
+	ctx context.Context, id string) (*OutputDTO, *apperr.InternalError) {
+	found, err := uc.auctionRepository.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	return &AuctionOutputDTO{
+	return &OutputDTO{
 		ID:          found.ID,
 		ProductName: found.ProductName,
 		Category:    found.Category,
@@ -29,16 +29,16 @@ func (uc *useCase) FindAuctionByID(
 func (uc *useCase) FindAuctions(
 	ctx context.Context,
 	status AuctionStatus,
-	category, productName string) ([]AuctionOutputDTO, *internal_error.InternalError) {
-	auctionEntities, err := uc.auctionRepository.FindAuctions(
-		ctx, auction.AuctionStatus(status), category, productName)
+	category, productName string) ([]OutputDTO, *apperr.InternalError) {
+	auctionEntities, err := uc.auctionRepository.FindAll(
+		ctx, auction.Status(status), category, productName)
 	if err != nil {
 		return nil, err
 	}
 
-	var auctionOutputs []AuctionOutputDTO
+	var auctionOutputs []OutputDTO
 	for _, value := range auctionEntities {
-		auctionOutputs = append(auctionOutputs, AuctionOutputDTO{
+		auctionOutputs = append(auctionOutputs, OutputDTO{
 			ID:          value.ID,
 			ProductName: value.ProductName,
 			Category:    value.Category,
@@ -54,13 +54,13 @@ func (uc *useCase) FindAuctions(
 
 func (uc *useCase) FindWinningBidByAuctionID(
 	ctx context.Context,
-	auctionID string) (*WinningInfoOutputDTO, *internal_error.InternalError) {
-	found, err := uc.auctionRepository.FindAuctionByID(ctx, auctionID)
+	auctionID string) (*WinningInfoOutputDTO, *apperr.InternalError) {
+	found, err := uc.auctionRepository.FindByID(ctx, auctionID)
 	if err != nil {
 		return nil, err
 	}
 
-	auctionOutputDTO := AuctionOutputDTO{
+	auctionOutputDTO := OutputDTO{
 		ID:          found.ID,
 		ProductName: found.ProductName,
 		Category:    found.Category,
@@ -70,7 +70,7 @@ func (uc *useCase) FindWinningBidByAuctionID(
 		Timestamp:   found.Timestamp,
 	}
 
-	winningBid, err := uc.bidRepository.FindWinningBidByAuctionID(ctx, found.ID)
+	winningBid, err := uc.bidRepository.FindWinningByAuctionID(ctx, found.ID)
 	if err != nil {
 		logger.Error("", err)
 		return &WinningInfoOutputDTO{
@@ -79,7 +79,7 @@ func (uc *useCase) FindWinningBidByAuctionID(
 		}, nil
 	}
 
-	bidOutputDTO := &bid.BidOutputDTO{
+	bidOutputDTO := &bid.OutputDTO{
 		ID:        winningBid.ID,
 		UserID:    winningBid.UserID,
 		AuctionID: winningBid.AuctionID,

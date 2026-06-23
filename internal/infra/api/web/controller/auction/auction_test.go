@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	auctioncontroller "fullcycle-auction_go/internal/infra/api/web/controller/auction"
-	"fullcycle-auction_go/internal/internal_error"
+	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/usecase/auction"
 
 	"github.com/gin-gonic/gin"
@@ -23,26 +23,26 @@ type mockAuctionUseCase struct {
 }
 
 func (m *mockAuctionUseCase) CreateAuction(
-	ctx context.Context, input auction.AuctionInputDTO) *internal_error.InternalError {
+	ctx context.Context, input auction.InputDTO) *apperr.InternalError {
 	args := m.Called(ctx, input)
 	if v := args.Get(0); v != nil {
-		return v.(*internal_error.InternalError)
+		return v.(*apperr.InternalError)
 	}
 	return nil
 }
 
 func (m *mockAuctionUseCase) FindAuctionByID(
-	ctx context.Context, id string) (*auction.AuctionOutputDTO, *internal_error.InternalError) {
+	ctx context.Context, id string) (*auction.OutputDTO, *apperr.InternalError) {
 	args := m.Called(ctx, id)
 
-	var out *auction.AuctionOutputDTO
+	var out *auction.OutputDTO
 	if v := args.Get(0); v != nil {
-		out = v.(*auction.AuctionOutputDTO)
+		out = v.(*auction.OutputDTO)
 	}
 
-	var err *internal_error.InternalError
+	var err *apperr.InternalError
 	if v := args.Get(1); v != nil {
-		err = v.(*internal_error.InternalError)
+		err = v.(*apperr.InternalError)
 	}
 
 	return out, err
@@ -50,24 +50,24 @@ func (m *mockAuctionUseCase) FindAuctionByID(
 
 func (m *mockAuctionUseCase) FindAuctions(
 	ctx context.Context, status auction.AuctionStatus, category, productName string,
-) ([]auction.AuctionOutputDTO, *internal_error.InternalError) {
+) ([]auction.OutputDTO, *apperr.InternalError) {
 	args := m.Called(ctx, status, category, productName)
 
-	var out []auction.AuctionOutputDTO
+	var out []auction.OutputDTO
 	if v := args.Get(0); v != nil {
-		out = v.([]auction.AuctionOutputDTO)
+		out = v.([]auction.OutputDTO)
 	}
 
-	var err *internal_error.InternalError
+	var err *apperr.InternalError
 	if v := args.Get(1); v != nil {
-		err = v.(*internal_error.InternalError)
+		err = v.(*apperr.InternalError)
 	}
 
 	return out, err
 }
 
 func (m *mockAuctionUseCase) FindWinningBidByAuctionID(
-	ctx context.Context, auctionID string) (*auction.WinningInfoOutputDTO, *internal_error.InternalError) {
+	ctx context.Context, auctionID string) (*auction.WinningInfoOutputDTO, *apperr.InternalError) {
 	args := m.Called(ctx, auctionID)
 
 	var out *auction.WinningInfoOutputDTO
@@ -75,9 +75,9 @@ func (m *mockAuctionUseCase) FindWinningBidByAuctionID(
 		out = v.(*auction.WinningInfoOutputDTO)
 	}
 
-	var err *internal_error.InternalError
+	var err *apperr.InternalError
 	if v := args.Get(1); v != nil {
-		err = v.(*internal_error.InternalError)
+		err = v.(*apperr.InternalError)
 	}
 
 	return out, err
@@ -134,7 +134,7 @@ func TestCreateAuction(t *testing.T) {
 		t.Parallel()
 		useCase := new(mockAuctionUseCase)
 		useCase.On("CreateAuction", mock.Anything, mock.Anything).
-			Return(internal_error.NewInternalServerError("boom"))
+			Return(apperr.NewInternalServerError("boom"))
 		router := setupAuctionRouter(useCase)
 
 		w := httptest.NewRecorder()
@@ -147,10 +147,10 @@ func TestCreateAuction(t *testing.T) {
 
 	t.Run("use case bad request returns 400", func(t *testing.T) {
 		t.Parallel()
-		// cobre o ramo bad_request de rest_err.ConvertError.
+		// cobre o ramo bad_request de httperr.ConvertError.
 		useCase := new(mockAuctionUseCase)
 		useCase.On("CreateAuction", mock.Anything, mock.Anything).
-			Return(internal_error.NewBadRequestError("invalid"))
+			Return(apperr.NewBadRequestError("invalid"))
 		router := setupAuctionRouter(useCase)
 
 		w := httptest.NewRecorder()
@@ -183,7 +183,7 @@ func TestFindAuctionByID(t *testing.T) {
 		id := uuid.NewString()
 		useCase := new(mockAuctionUseCase)
 		useCase.On("FindAuctionByID", mock.Anything, id).
-			Return(&auction.AuctionOutputDTO{ID: id, ProductName: "Clock"}, nil)
+			Return(&auction.OutputDTO{ID: id, ProductName: "Clock"}, nil)
 		router := setupAuctionRouter(useCase)
 
 		w := httptest.NewRecorder()
@@ -192,7 +192,7 @@ func TestFindAuctionByID(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, w.Code)
 
-		var body auction.AuctionOutputDTO
+		var body auction.OutputDTO
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 		require.Equal(t, id, body.ID)
 		useCase.AssertExpectations(t)
@@ -203,7 +203,7 @@ func TestFindAuctionByID(t *testing.T) {
 		id := uuid.NewString()
 		useCase := new(mockAuctionUseCase)
 		useCase.On("FindAuctionByID", mock.Anything, id).
-			Return(nil, internal_error.NewNotFoundError("missing"))
+			Return(nil, apperr.NewNotFoundError("missing"))
 		router := setupAuctionRouter(useCase)
 
 		w := httptest.NewRecorder()
@@ -249,7 +249,7 @@ func TestFindAuctions(t *testing.T) {
 		t.Parallel()
 		useCase := new(mockAuctionUseCase)
 		useCase.On("FindAuctions", mock.Anything, auction.AuctionStatus(0), "", "").
-			Return([]auction.AuctionOutputDTO{{ID: uuid.NewString()}}, nil)
+			Return([]auction.OutputDTO{{ID: uuid.NewString()}}, nil)
 		router := setupAuctionRouter(useCase)
 
 		w := httptest.NewRecorder()
@@ -285,7 +285,7 @@ func TestFindWinningBid(t *testing.T) {
 		useCase := new(mockAuctionUseCase)
 		useCase.On("FindWinningBidByAuctionID", mock.Anything, id).
 			Return(&auction.WinningInfoOutputDTO{
-				Auction: auction.AuctionOutputDTO{ID: id},
+				Auction: auction.OutputDTO{ID: id},
 				Bid:     nil,
 			}, nil)
 		router := setupAuctionRouter(useCase)

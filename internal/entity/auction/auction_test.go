@@ -53,7 +53,7 @@ func TestCreateAuction(t *testing.T) {
 
 	t.Run("valid input", func(t *testing.T) {
 		t.Parallel()
-		a, err := auction.CreateAuction(
+		a, err := auction.Create(
 			"Clock", "Decor", "A long enough description", auction.New)
 		require.Nil(t, err)
 		require.NotEmpty(t, a.ID)
@@ -62,7 +62,7 @@ func TestCreateAuction(t *testing.T) {
 
 	t.Run("invalid input", func(t *testing.T) {
 		t.Parallel()
-		a, err := auction.CreateAuction(
+		a, err := auction.Create(
 			"C", "Decor", "A long enough description", auction.New)
 		require.NotNil(t, err)
 		require.Nil(t, a)
