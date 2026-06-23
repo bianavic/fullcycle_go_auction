@@ -2,9 +2,9 @@ package bid
 
 import (
 	"context"
-	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/entity/bid"
+	"fullcycle-auction_go/internal/observability/logger"
 	"os"
 	"strconv"
 	"time"

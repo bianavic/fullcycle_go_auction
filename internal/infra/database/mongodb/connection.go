@@ -2,7 +2,7 @@ package mongodb
 
 import (
 	"context"
-	"fullcycle-auction_go/configuration/logger"
+	"fullcycle-auction_go/internal/observability/logger"
 	"os"
 
 	"go.mongodb.org/mongo-driver/mongo"

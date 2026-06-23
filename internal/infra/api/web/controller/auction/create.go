@@ -2,7 +2,7 @@ package auction
 
 import (
 	"context"
-	"fullcycle-auction_go/configuration/httperr"
+	"fullcycle-auction_go/internal/infra/api/web/httperr"
 	"fullcycle-auction_go/internal/infra/api/web/validation"
 	"fullcycle-auction_go/internal/usecase/auction"
 	"net/http"

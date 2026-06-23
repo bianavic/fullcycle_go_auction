@@ -1,10 +1,10 @@
 package httperr_test
 
 import (
+	"fullcycle-auction_go/internal/infra/api/web/httperr"
 	"net/http"
 	"testing"
 
-	"fullcycle-auction_go/configuration/httperr"
 	"fullcycle-auction_go/internal/apperr"
 
 	"github.com/stretchr/testify/require"

@@ -3,7 +3,7 @@ package validation
 import (
 	"encoding/json"
 	"errors"
-	"fullcycle-auction_go/configuration/httperr"
+	"fullcycle-auction_go/internal/infra/api/web/httperr"
 
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/locales/en"

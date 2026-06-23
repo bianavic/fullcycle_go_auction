@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"fullcycle-auction_go/configuration/database/mongodb"
 	auctioncontroller "fullcycle-auction_go/internal/infra/api/web/controller/auction"
 	"fullcycle-auction_go/internal/infra/api/web/controller/bid"
 	"fullcycle-auction_go/internal/infra/api/web/controller/user"
 	auctionrepository "fullcycle-auction_go/internal/infra/database/auction"
 	bidrepository "fullcycle-auction_go/internal/infra/database/bid"
+	"fullcycle-auction_go/internal/infra/database/mongodb"
 	userrepository "fullcycle-auction_go/internal/infra/database/user"
 	auctionuc "fullcycle-auction_go/internal/usecase/auction"
 	biduc "fullcycle-auction_go/internal/usecase/bid"

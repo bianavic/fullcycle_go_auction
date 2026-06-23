@@ -2,9 +2,9 @@ package auction
 
 import (
 	"context"
-	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/entity/auction"
+	"fullcycle-auction_go/internal/observability/logger"
 	"fullcycle-auction_go/internal/usecase/bid"
 )
 

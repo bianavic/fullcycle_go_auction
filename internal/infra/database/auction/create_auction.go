@@ -3,10 +3,10 @@ package auction
 import (
 	"context"
 	"fmt"
-	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/config"
 	"fullcycle-auction_go/internal/entity/auction"
+	"fullcycle-auction_go/internal/observability/logger"
 	"sync"
 	"time"
 

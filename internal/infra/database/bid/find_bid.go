@@ -3,9 +3,9 @@ package bid
 import (
 	"context"
 	"fmt"
-	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/entity/bid"
+	"fullcycle-auction_go/internal/observability/logger"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
