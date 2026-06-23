@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"fullcycle-auction_go/internal/entity/bid"
 	"fullcycle-auction_go/internal/apperr"
+	"fullcycle-auction_go/internal/entity/bid"
 	biduc "fullcycle-auction_go/internal/usecase/bid"
 
 	"github.com/google/uuid"

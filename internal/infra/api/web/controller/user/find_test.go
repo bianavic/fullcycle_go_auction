@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"fullcycle-auction_go/internal/infra/api/web/controller/user"
 	"fullcycle-auction_go/internal/apperr"
+	"fullcycle-auction_go/internal/infra/api/web/controller/user"
 	useruc "fullcycle-auction_go/internal/usecase/user"
 
 	"github.com/gin-gonic/gin"

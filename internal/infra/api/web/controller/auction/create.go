@@ -14,7 +14,7 @@ type Controller struct {
 	auctionUseCase auction.UseCase
 }
 
-func New(ctx context.Context, auctionUseCase auction.UseCase) *Controller {
+func New(auctionUseCase auction.UseCase) *Controller {
 	return &Controller{
 		auctionUseCase: auctionUseCase,
 	}

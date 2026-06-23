@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	bidcontroller "fullcycle-auction_go/internal/infra/api/web/controller/bid"
 	"fullcycle-auction_go/internal/apperr"
+	bidcontroller "fullcycle-auction_go/internal/infra/api/web/controller/bid"
 	"fullcycle-auction_go/internal/usecase/bid"
 
 	"github.com/gin-gonic/gin"

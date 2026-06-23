@@ -3,11 +3,11 @@ package bid
 import (
 	"context"
 	"fullcycle-auction_go/configuration/logger"
+	"fullcycle-auction_go/internal/apperr"
+	"fullcycle-auction_go/internal/config"
 	"fullcycle-auction_go/internal/entity/auction"
 	"fullcycle-auction_go/internal/entity/bid"
 	auctionrepo "fullcycle-auction_go/internal/infra/database/auction"
-	"fullcycle-auction_go/internal/apperr"
-	"os"
 	"sync"
 	"time"
 
@@ -111,11 +111,5 @@ func (bd *Repository) Create(
 }
 
 func getAuctionInterval() time.Duration {
-	auctionInterval := os.Getenv("AUCTION_INTERVAL")
-	duration, err := time.ParseDuration(auctionInterval)
-	if err != nil {
-		return time.Minute * 5
-	}
-
-	return duration
+	return config.ParseDuration("AUCTION_INTERVAL", 5*time.Minute)
 }

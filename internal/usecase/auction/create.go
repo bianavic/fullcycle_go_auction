@@ -2,9 +2,9 @@ package auction
 
 import (
 	"context"
+	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/entity/auction"
 	"fullcycle-auction_go/internal/entity/bid"
-	"fullcycle-auction_go/internal/apperr"
 	biduc "fullcycle-auction_go/internal/usecase/bid"
 	"time"
 )

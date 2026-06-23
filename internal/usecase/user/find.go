@@ -2,8 +2,8 @@ package user
 
 import (
 	"context"
-	"fullcycle-auction_go/internal/entity/user"
 	"fullcycle-auction_go/internal/apperr"
+	"fullcycle-auction_go/internal/entity/user"
 )
 
 func New(userRepository user.Repository) UseCase {

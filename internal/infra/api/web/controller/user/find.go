@@ -3,11 +3,11 @@ package user
 import (
 	"context"
 	"fullcycle-auction_go/configuration/httperr"
+	"fullcycle-auction_go/internal/infra/api/web/validation"
 	"fullcycle-auction_go/internal/usecase/user"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type Controller struct {
@@ -23,12 +23,7 @@ func New(userUseCase user.UseCase) *Controller {
 func (u *Controller) FindUserByID(c *gin.Context) {
 	userID := c.Param("userId")
 
-	if err := uuid.Validate(userID); err != nil {
-		errRest := httperr.NewBadRequestError("Invalid fields", httperr.Causes{
-			Field:   "userId",
-			Message: "Invalid UUID value",
-		})
-
+	if errRest := validation.ValidateUUID(userID, "userId"); errRest != nil {
 		c.JSON(errRest.Code, errRest)
 		return
 	}

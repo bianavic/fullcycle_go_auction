@@ -9,11 +9,11 @@ import (
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
-	validator_en "github.com/go-playground/validator/v10/translations/en"
+	validatoren "github.com/go-playground/validator/v10/translations/en"
+	"github.com/google/uuid"
 )
 
 var (
-	Validate   = validator.New()
 	translator ut.Translator
 )
 
@@ -22,18 +22,25 @@ func init() {
 		en := en.New()
 		enTransl := ut.New(en, en)
 		translator, _ = enTransl.GetTranslator("en")
-		_ = validator_en.RegisterDefaultTranslations(value, translator)
+		_ = validatoren.RegisterDefaultTranslations(value, translator)
 	}
 }
 
-func ValidateErr(validation_err error) *httperr.RestErr {
-	var jsonErr *json.UnmarshalTypeError
-	var jsonValidation validator.ValidationErrors
+func ValidateUUID(value, field string) *httperr.RestErr {
+	if err := uuid.Validate(value); err != nil {
+		return httperr.NewBadRequestError("Invalid fields", httperr.Causes{
+			Field:   field,
+			Message: "Invalid UUID value",
+		})
+	}
+	return nil
+}
 
-	if errors.As(validation_err, &jsonErr) {
+func ValidateErr(validationErr error) *httperr.RestErr {
+	if _, ok := errors.AsType[*json.UnmarshalTypeError](validationErr); ok {
 		return httperr.NewNotFoundError("Invalid type error")
-	} else if errors.As(validation_err, &jsonValidation) {
-		errorCauses := []httperr.Causes{}
+	} else if jsonValidation, ok := errors.AsType[validator.ValidationErrors](validationErr); ok {
+		var errorCauses []httperr.Causes
 
 		for _, e := range jsonValidation {
 			errorCauses = append(errorCauses, httperr.Causes{
@@ -43,7 +50,6 @@ func ValidateErr(validation_err error) *httperr.RestErr {
 		}
 
 		return httperr.NewBadRequestError("Invalid field values", errorCauses...)
-	} else {
-		return httperr.NewBadRequestError("Error trying to convert fields")
 	}
+	return httperr.NewBadRequestError("Error trying to convert fields")
 }

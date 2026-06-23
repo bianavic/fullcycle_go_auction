@@ -3,21 +3,16 @@ package bid
 import (
 	"context"
 	"fullcycle-auction_go/configuration/httperr"
+	"fullcycle-auction_go/internal/infra/api/web/validation"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 func (u *Controller) FindBidByAuctionID(c *gin.Context) {
 	auctionID := c.Param("auctionId")
 
-	if err := uuid.Validate(auctionID); err != nil {
-		errRest := httperr.NewBadRequestError("Invalid fields", httperr.Causes{
-			Field:   "auctionId",
-			Message: "Invalid UUID value",
-		})
-
+	if errRest := validation.ValidateUUID(auctionID, "auctionId"); errRest != nil {
 		c.JSON(errRest.Code, errRest)
 		return
 	}

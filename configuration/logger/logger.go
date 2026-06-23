@@ -26,11 +26,6 @@ func init() {
 	log, _ = logConfiguration.Build()
 }
 
-func Info(message string, tags ...zap.Field) {
-	log.Info(message, tags...)
-	_ = log.Sync()
-}
-
 func Error(message string, err error, tags ...zap.Field) {
 	tags = append(tags, zap.NamedError("error", err))
 	log.Error(message, tags...)

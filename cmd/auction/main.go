@@ -63,7 +63,6 @@ func initDependencies(ctx context.Context, database *mongo.Database) (
 	userController = user.New(
 		useruc.New(userRepository))
 	auctionController = auctioncontroller.New(
-		ctx,
 		auctionuc.New(auctionRepository, bidRepository))
 	bidController = bid.New(biduc.New(bidRepository))
 

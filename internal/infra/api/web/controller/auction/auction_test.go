@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	auctioncontroller "fullcycle-auction_go/internal/infra/api/web/controller/auction"
 	"fullcycle-auction_go/internal/apperr"
+	auctioncontroller "fullcycle-auction_go/internal/infra/api/web/controller/auction"
 	"fullcycle-auction_go/internal/usecase/auction"
 
 	"github.com/gin-gonic/gin"
@@ -89,7 +89,7 @@ func init() {
 
 func setupAuctionRouter(uc auction.UseCase) *gin.Engine {
 	r := gin.New()
-	c := auctioncontroller.New(context.Background(), uc)
+	c := auctioncontroller.New(uc)
 	r.POST("/auctions", c.CreateAuction)
 	r.GET("/auctions", c.FindAuctions)
 	r.GET("/auctions/:auctionId", c.FindAuctionByID)

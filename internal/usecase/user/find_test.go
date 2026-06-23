@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"fullcycle-auction_go/internal/entity/user"
 	"fullcycle-auction_go/internal/apperr"
+	"fullcycle-auction_go/internal/entity/user"
 	useruc "fullcycle-auction_go/internal/usecase/user"
 
 	"github.com/stretchr/testify/mock"

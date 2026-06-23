@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"fullcycle-auction_go/configuration/logger"
-	"fullcycle-auction_go/internal/entity/user"
 	"fullcycle-auction_go/internal/apperr"
+	"fullcycle-auction_go/internal/entity/user"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
