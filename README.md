@@ -46,22 +46,27 @@ safe under concurrency.
 ## Project Structure
 
 ```
-cmd/auction/                entrypoint (main.go)
-configuration/
-  database/mongodb/         MongoDB connection factory
-  logger/                   logger setup
-  rest_err/                 REST error helpers
+cmd/auction/                entrypoint (main.go), manual dependency wiring
 internal/
+  apperr/                   application error types
+  config/                   env parsing
   entity/                   domain entities (auction, bid, user)
-  infra/
-    api/web/controller/     Gin controllers (auction, bid, user)
-    database/               MongoDB repositories (auction, bid, user)
-  internal_error/           custom error types
   usecase/                  application use cases (auction, bid, user)
+  infra/
+    api/web/
+      controller/           Gin controllers (auction, bid, user)
+      httperr/              HTTP error responses
+      validation/           request validation
+    database/
+      mongodb/              MongoDB connection factory
+      auction/              repository + background auction closer
+      bid/                  repository
+      user/                 repository
+  observability/logger/     Zap logger setup
 docs/CHALLENGE.md           original challenge brief (pt-BR)
 ```
 
-The automatic-close logic lives in `internal/infra/database/auction/create_auction.go`.
+The automatic-close logic lives in `internal/infra/database/auction/create.go`.
 
 ## Prerequisites
 
@@ -182,7 +187,7 @@ docker compose down -v         # also remove the MongoDB data volume
 ### Required by the challenge
 
 - [x] A function that computes the auction duration from environment variables — `getAuctionInterval()` in
-  `internal/infra/database/auction/create_auction.go` (reads `AUCTION_INTERVAL`).
+  `internal/infra/database/auction/create.go` (reads `AUCTION_INTERVAL`).
 - [x] A goroutine that detects expired auctions and closes them via update —
   `StartAuctionCloser` / `closeExpiredAuctions` (background monitor), complemented by the per-auction
   `scheduleAuctionClose` / `closeAuction`.
