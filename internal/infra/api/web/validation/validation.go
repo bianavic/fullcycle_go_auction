@@ -37,9 +37,14 @@ func ValidateUUID(value, field string) *httperr.RestErr {
 }
 
 func ValidateErr(validationErr error) *httperr.RestErr {
-	if _, ok := errors.AsType[*json.UnmarshalTypeError](validationErr); ok {
-		return httperr.NewNotFoundError("Invalid type error")
-	} else if jsonValidation, ok := errors.AsType[validator.ValidationErrors](validationErr); ok {
+	if typeErr, ok := errors.AsType[*json.UnmarshalTypeError](validationErr); ok {
+		return httperr.NewBadRequestError("Invalid type error", httperr.Causes{
+			Field:   typeErr.Field,
+			Message: "expected type " + typeErr.Type.String(),
+		})
+	}
+
+	if jsonValidation, ok := errors.AsType[validator.ValidationErrors](validationErr); ok {
 		var errorCauses []httperr.Causes
 
 		for _, e := range jsonValidation {

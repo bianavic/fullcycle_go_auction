@@ -109,11 +109,8 @@ func TestCreateBid(t *testing.T) {
 		useCase.AssertNotCalled(t, "CreateBid", mock.Anything, mock.Anything)
 	})
 
-	t.Run("type mismatch returns not found", func(t *testing.T) {
+	t.Run("type mismatch returns bad request", func(t *testing.T) {
 		t.Parallel()
-		// QUIRK: erro de tipo no JSON (amount string) cai no ramo *json.UnmarshalTypeError
-		// de validation.ValidateErr, que retorna NewNotFoundError -> 404 (não 400).
-		// Teste trava o comportamento atual; distinto do JSON malformado (400).
 		useCase := new(mockBidUseCase)
 		router := setupBidRouter(useCase)
 
@@ -121,7 +118,7 @@ func TestCreateBid(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/bids", strings.NewReader(`{"amount":"not-a-number"}`))
 		router.ServeHTTP(w, req)
 
-		require.Equal(t, http.StatusNotFound, w.Code)
+		require.Equal(t, http.StatusBadRequest, w.Code)
 		useCase.AssertNotCalled(t, "CreateBid", mock.Anything, mock.Anything)
 	})
 
