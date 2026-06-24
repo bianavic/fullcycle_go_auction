@@ -35,29 +35,38 @@ safe under concurrency.
 
 ## Technology Stack
 
-- **Go** 1.26
+- **Go** 1.26.4
 - **Gin** — HTTP web framework
 - **MongoDB** — persistence (official `mongo-driver`)
-- **Zap** — structured logging
+- **Uber Zap** — structured logging
+- **go-playground/validator v10** — request validation
 - **Docker / Docker Compose** — local environment
 - **Testcontainers for Go** — ephemeral MongoDB for integration tests
 
 ## Project Structure
 
 ```
-cmd/auction/            entrypoint (main.go) and .env
-configuration/          logger, MongoDB connection, REST error helpers
+cmd/auction/                entrypoint (main.go), manual dependency wiring
 internal/
-  entity/               domain entities (auction, bid, user)
+  apperr/                   application error types
+  config/                   env parsing
+  entity/                   domain entities (auction, bid, user)
+  usecase/                  application use cases (auction, bid, user)
   infra/
-    database/           MongoDB repositories (auction, bid, user)
-    api/web/            Gin controllers and validation
-  usecase/              application use cases
-  internal_error/       custom error types
-docs/CHALLENGE.md       original challenge brief (pt-BR)
+    api/web/
+      controller/           Gin controllers (auction, bid, user)
+      httperr/              HTTP error responses
+      validation/           request validation
+    database/
+      mongodb/              MongoDB connection factory
+      auction/              repository + background auction closer
+      bid/                  repository
+      user/                 repository
+  observability/logger/     Zap logger setup
+docs/CHALLENGE.md           original challenge brief (pt-BR)
 ```
 
-The automatic-close logic lives in `internal/infra/database/auction/create_auction.go`.
+The automatic-close logic lives in `internal/infra/database/auction/create.go`.
 
 ## Prerequisites
 
@@ -129,18 +138,33 @@ curl http://localhost:8080/auction/<auction-id>
 
 ## Running Tests
 
-The automatic-close behavior is covered by integration tests that spin up an ephemeral MongoDB using
-Testcontainers (a running Docker daemon is required). They are guarded by the `integration` build tag:
+Run unit tests (no external dependencies):
+
+```bash
+go test -race ./...
+```
+
+Run integration tests (requires a running Docker daemon — Testcontainers pulls `mongo:7` automatically):
 
 ```bash
 go test -race -tags integration ./...
 ```
 
-The suite (`internal/infra/database/auction/create_auction_test.go`) validates:
+The integration suite covers:
 
-- **Scheduled close** — a created auction starts `Active` and becomes `Completed` after `AUCTION_INTERVAL`.
-- **Background monitor** — an already-expired `Active` auction inserted directly into the database is closed
-  by the monitor on its next sweep.
+- **Scheduled close** — `TestCreateAuction_ClosesAutomaticallyAfterInterval`: a created auction starts
+  `Active` and transitions to `Completed` after `AUCTION_INTERVAL`.
+- **Background monitor closes expired auction** — `TestStartAuctionCloser/closes_expired_auction`: an
+  already-expired `Active` auction inserted directly into the database is closed by the monitor.
+- **Completed auction is not reopened** — `TestStartAuctionCloser/completed_auction_is_not_reopened`:
+  the `status = Active` filter makes updates idempotent; a `Completed` auction is never modified.
+- **No expired auctions does nothing** — `TestStartAuctionCloser/no_expired_auctions_does_nothing`:
+  an auction with a future timestamp is never closed by the monitor.
+- **Context cancellation stops monitor** — `TestStartAuctionCloser/stops_on_context_cancel`: after the
+  monitor context is cancelled, newly expired auctions are not closed.
+- **Concurrent closers are idempotent** — `TestCreateAuction_ConcurrentClosers_Idempotent`: when the
+  scheduled closer and the background monitor race to close the same auction, the final status is
+  `Completed` without oscillation.
 
 ## Service Management
 
@@ -162,18 +186,21 @@ docker compose down -v         # also remove the MongoDB data volume
 
 ### Required by the challenge
 
-- [x] A function that computes the auction duration from environment variables — `getAuctionInterval()` in
-  `internal/infra/database/auction/create_auction.go` (reads `AUCTION_INTERVAL`).
+- [x] A function that computes the auction duration from environment variables — `config.AuctionInterval()` in
+  `internal/config/env.go` (reads `AUCTION_INTERVAL`).
 - [x] A goroutine that detects expired auctions and closes them via update —
   `StartAuctionCloser` / `closeExpiredAuctions` (background monitor), complemented by the per-auction
   `scheduleAuctionClose` / `closeAuction`.
-- [x] A test validating that closing happens automatically — integration tests with Testcontainers.
+- [x] A test validating that closing happens automatically — integration test suite with Testcontainers,
+  covering scheduled close, background monitor, idempotency, context cancellation, and concurrency.
 - [x] Documentation on how to run in dev + Docker/Docker Compose — this README.
 
 ### Beyond the base
 
 - Hybrid closing strategy (scheduled close + background safety-net monitor) for durability across restarts.
 - Idempotent updates filtered by `status = Active` and a mutex to guard concurrent closes.
+- Graceful shutdown: on `SIGINT`/`SIGTERM` the HTTP server drains in-flight requests and the background
+  goroutines (auction closer and bid batch) stop, with the pending bid batch flushed before exit.
 
 ---
 
