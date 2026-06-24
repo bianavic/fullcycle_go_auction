@@ -2,33 +2,16 @@ package auction_test
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/entity/auction"
 	"fullcycle-auction_go/internal/entity/bid"
 	auctionuc "fullcycle-auction_go/internal/usecase/auction"
+	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
-
-type fakeAuctionRepo struct {
-	created   []*auction.Auction
-	createErr *apperr.InternalError
-
-	byID    *auction.Auction
-	byIDErr *apperr.InternalError
-
-	list    []auction.Auction
-	listErr *apperr.InternalError
-}
-
-func (f *fakeAuctionRepo) Create(ctx context.Context, a *auction.Auction) *apperr.InternalError {
-	f.created = append(f.created, a)
-	return f.createErr
-}
 
 func (f *fakeAuctionRepo) FindAll(ctx context.Context, status auction.Status, category, productName string) ([]auction.Auction, *apperr.InternalError) {
 	return f.list, f.listErr
@@ -38,71 +21,12 @@ func (f *fakeAuctionRepo) FindByID(ctx context.Context, id string) (*auction.Auc
 	return f.byID, f.byIDErr
 }
 
-// fakeBidRepo é um stub de bid.Repository; só o caminho do lance
-// vencedor é exercitado por estes testes.
-type fakeBidRepo struct {
-	winning    *bid.Bid
-	winningErr *apperr.InternalError
-}
-
-func (f *fakeBidRepo) Create(ctx context.Context, bids []bid.Bid) *apperr.InternalError {
-	return nil
-}
-
 func (f *fakeBidRepo) FindByAuctionID(ctx context.Context, auctionID string) ([]bid.Bid, *apperr.InternalError) {
 	return nil, nil
 }
 
 func (f *fakeBidRepo) FindWinningByAuctionID(ctx context.Context, auctionID string) (*bid.Bid, *apperr.InternalError) {
 	return f.winning, f.winningErr
-}
-
-func validInput() auctionuc.InputDTO {
-	return auctionuc.InputDTO{
-		ProductName: "Clock",
-		Category:    "Decor",
-		Description: "A long enough description",
-		Condition:   1,
-	}
-}
-
-func TestCreateAuction(t *testing.T) {
-	t.Parallel()
-
-	t.Run("success", func(t *testing.T) {
-		t.Parallel()
-		auctionRepo := &fakeAuctionRepo{}
-		uc := auctionuc.New(auctionRepo, &fakeBidRepo{})
-
-		err := uc.CreateAuction(context.Background(), validInput())
-		require.Nil(t, err)
-		require.Len(t, auctionRepo.created, 1)
-		require.Equal(t, "Clock", auctionRepo.created[0].ProductName)
-	})
-
-	t.Run("validation error", func(t *testing.T) {
-		t.Parallel()
-		auctionRepo := &fakeAuctionRepo{}
-		uc := auctionuc.New(auctionRepo, &fakeBidRepo{})
-
-		input := validInput()
-		input.ProductName = "C"
-
-		err := uc.CreateAuction(context.Background(), input)
-		require.NotNil(t, err)
-		require.Equal(t, "bad_request", err.Err)
-		require.Empty(t, auctionRepo.created)
-	})
-
-	t.Run("repository error", func(t *testing.T) {
-		t.Parallel()
-		auctionRepo := &fakeAuctionRepo{createErr: apperr.NewInternalServerError("unexpected error")}
-		uc := auctionuc.New(auctionRepo, &fakeBidRepo{})
-
-		err := uc.CreateAuction(context.Background(), validInput())
-		require.NotNil(t, err)
-		require.Equal(t, "internal_server_error", err.Err)
-	})
 }
 
 func TestFindAuctionByID(t *testing.T) {
