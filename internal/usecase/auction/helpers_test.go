@@ -21,4 +21,3 @@ type fakeBidRepo struct {
 	winning    *bid.Bid
 	winningErr *apperr.InternalError
 }
-
