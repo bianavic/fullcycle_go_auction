@@ -147,7 +147,7 @@ go test -race ./...
 Run integration tests (requires a running Docker daemon — Testcontainers pulls `mongo:7` automatically):
 
 ```bash
-go test -race -tags integration ./internal/infra/database/...
+go test -race -tags integration ./...
 ```
 
 The integration suite covers:
@@ -186,8 +186,8 @@ docker compose down -v         # also remove the MongoDB data volume
 
 ### Required by the challenge
 
-- [x] A function that computes the auction duration from environment variables — `getAuctionInterval()` in
-  `internal/infra/database/auction/create.go` (reads `AUCTION_INTERVAL`).
+- [x] A function that computes the auction duration from environment variables — `config.AuctionInterval()` in
+  `internal/config/env.go` (reads `AUCTION_INTERVAL`).
 - [x] A goroutine that detects expired auctions and closes them via update —
   `StartAuctionCloser` / `closeExpiredAuctions` (background monitor), complemented by the per-auction
   `scheduleAuctionClose` / `closeAuction`.
@@ -199,6 +199,8 @@ docker compose down -v         # also remove the MongoDB data volume
 
 - Hybrid closing strategy (scheduled close + background safety-net monitor) for durability across restarts.
 - Idempotent updates filtered by `status = Active` and a mutex to guard concurrent closes.
+- Graceful shutdown: on `SIGINT`/`SIGTERM` the HTTP server drains in-flight requests and the background
+  goroutines (auction closer and bid batch) stop, with the pending bid batch flushed before exit.
 
 ---
 

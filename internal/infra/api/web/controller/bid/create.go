@@ -1,7 +1,6 @@
 package bid
 
 import (
-	"context"
 	"fullcycle-auction_go/internal/infra/api/web/httperr"
 	"fullcycle-auction_go/internal/infra/api/web/validation"
 	biduc "fullcycle-auction_go/internal/usecase/bid"
@@ -30,7 +29,7 @@ func (u *Controller) CreateBid(c *gin.Context) {
 		return
 	}
 
-	err := u.bid.CreateBid(context.Background(), bidInputDTO)
+	err := u.bid.CreateBid(c.Request.Context(), bidInputDTO)
 	if err != nil {
 		restErr := httperr.ConvertError(err)
 

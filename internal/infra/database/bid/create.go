@@ -34,7 +34,7 @@ type Repository struct {
 
 func New(database *mongo.Database, auctionRepository *auctionrepo.Repository) *Repository {
 	return &Repository{
-		auctionInterval:       getAuctionInterval(),
+		auctionInterval:       config.AuctionInterval(),
 		auctionStatusMap:      make(map[string]auction.Status),
 		auctionEndTimeMap:     make(map[string]time.Time),
 		auctionStatusMapMutex: &sync.Mutex{},
@@ -108,8 +108,4 @@ func (bd *Repository) Create(
 	}
 	wg.Wait()
 	return nil
-}
-
-func getAuctionInterval() time.Duration {
-	return config.ParseDuration("AUCTION_INTERVAL", 5*time.Minute)
 }

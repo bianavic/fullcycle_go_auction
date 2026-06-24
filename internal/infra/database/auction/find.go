@@ -2,6 +2,7 @@ package auction
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/entity/auction"
@@ -10,6 +11,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func (ar *Repository) FindByID(
@@ -18,6 +20,12 @@ func (ar *Repository) FindByID(
 
 	var doc document
 	if err := ar.Collection.FindOne(ctx, filter).Decode(&doc); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			logger.Error(fmt.Sprintf("Auction not found with id = %s", id), err)
+			return nil, apperr.NewNotFoundError(
+				fmt.Sprintf("auction not found with id %s", id))
+		}
+
 		logger.Error(fmt.Sprintf("Error trying to find auction by id = %s", id), err)
 		return nil, apperr.NewInternalServerError("error trying to find auction by id")
 	}

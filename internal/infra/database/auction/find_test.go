@@ -44,6 +44,7 @@ func TestFindAuctionByID(t *testing.T) {
 
 		found, err := repo.FindByID(ctx, uuid.NewString())
 		require.NotNil(t, err)
+		require.Equal(t, "not_found", err.Err)
 		require.Nil(t, found)
 	})
 }
