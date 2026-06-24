@@ -19,7 +19,7 @@ func (ar *Repository) FindByID(
 	var doc document
 	if err := ar.Collection.FindOne(ctx, filter).Decode(&doc); err != nil {
 		logger.Error(fmt.Sprintf("Error trying to find auction by id = %s", id), err)
-		return nil, apperr.NewInternalServerError("Error trying to find auction by id")
+		return nil, apperr.NewInternalServerError("error trying to find auction by id")
 	}
 
 	return &auction.Auction{
@@ -55,14 +55,14 @@ func (repo *Repository) FindAll(
 	cursor, err := repo.Collection.Find(ctx, filter)
 	if err != nil {
 		logger.Error("Error finding auctions", err)
-		return nil, apperr.NewInternalServerError("Error finding auctions")
+		return nil, apperr.NewInternalServerError("error finding auctions")
 	}
 	defer func() { _ = cursor.Close(ctx) }()
 
 	var docs []document
 	if err := cursor.All(ctx, &docs); err != nil {
 		logger.Error("Error decoding auctions", err)
-		return nil, apperr.NewInternalServerError("Error decoding auctions")
+		return nil, apperr.NewInternalServerError("error decoding auctions")
 	}
 
 	var auctions []auction.Auction

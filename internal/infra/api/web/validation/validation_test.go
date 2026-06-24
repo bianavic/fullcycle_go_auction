@@ -78,6 +78,6 @@ func TestValidateErr(t *testing.T) {
 		result := validation.ValidateErr(fmt.Errorf("some parsing error"))
 		require.NotNil(t, result)
 		require.Equal(t, http.StatusBadRequest, result.Code)
-		require.Equal(t, "Error trying to convert fields", result.Message)
+		require.Equal(t, "error trying to convert fields", result.Message)
 	})
 }

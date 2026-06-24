@@ -21,7 +21,7 @@ func (bd *Repository) FindByAuctionID(
 		logger.Error(
 			fmt.Sprintf("Error trying to find bids by auctionID %s", auctionID), err)
 		return nil, apperr.NewInternalServerError(
-			fmt.Sprintf("Error trying to find bids by auctionID %s", auctionID))
+			fmt.Sprintf("error trying to find bids by auctionID %s", auctionID))
 	}
 
 	var docs []document
@@ -29,7 +29,7 @@ func (bd *Repository) FindByAuctionID(
 		logger.Error(
 			fmt.Sprintf("Error trying to find bids by auctionID %s", auctionID), err)
 		return nil, apperr.NewInternalServerError(
-			fmt.Sprintf("Error trying to find bids by auctionID %s", auctionID))
+			fmt.Sprintf("error trying to find bids by auctionID %s", auctionID))
 	}
 
 	var bids []bid.Bid
@@ -54,7 +54,7 @@ func (bd *Repository) FindWinningByAuctionID(
 	opts := options.FindOne().SetSort(bson.D{{Key: "amount", Value: -1}})
 	if err := bd.Collection.FindOne(ctx, filter, opts).Decode(&doc); err != nil {
 		logger.Error("Error trying to find the auction winner", err)
-		return nil, apperr.NewInternalServerError("Error trying to find the auction winner")
+		return nil, apperr.NewInternalServerError("error trying to find the auction winner")
 	}
 
 	return &bid.Bid{

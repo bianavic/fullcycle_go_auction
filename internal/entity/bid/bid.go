@@ -38,7 +38,7 @@ func (b *Bid) Validate() *apperr.InternalError {
 	} else if err := uuid.Validate(b.AuctionID); err != nil {
 		return apperr.NewBadRequestError("AuctionID is not a valid id")
 	} else if b.Amount <= 0 {
-		return apperr.NewBadRequestError("Amount is not a valid value")
+		return apperr.NewBadRequestError("amount is not a valid value")
 	}
 
 	return nil

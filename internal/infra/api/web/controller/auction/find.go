@@ -36,7 +36,7 @@ func (u *Controller) FindAuctions(c *gin.Context) {
 
 	statusNumber, conversionError := strconv.Atoi(status)
 	if conversionError != nil {
-		errRest := httperr.NewBadRequestError("Error trying to validate auction status param")
+		errRest := httperr.NewBadRequestError("error trying to validate auction status param")
 		c.JSON(errRest.Code, errRest)
 		return
 	}

@@ -56,7 +56,7 @@ func (r *Repository) Create(
 	_, err := r.Collection.InsertOne(ctx, doc)
 	if err != nil {
 		logger.Error("Error trying to insert auction", err)
-		return apperr.NewInternalServerError("Error trying to insert auction")
+		return apperr.NewInternalServerError("error trying to insert auction")
 	}
 
 	// agenda o fechamento pontual deste leilão após o intervalo configurado.
@@ -103,7 +103,7 @@ func (r *Repository) closeAuction(auctionID string) *apperr.InternalError {
 
 	if _, err := r.Collection.UpdateOne(ctx, filter, update); err != nil {
 		logger.Error("Error trying to close auction", err)
-		return apperr.NewInternalServerError("Error trying to close auction")
+		return apperr.NewInternalServerError("error trying to close auction")
 	}
 
 	return nil
@@ -146,7 +146,7 @@ func (r *Repository) closeExpiredAuctions(ctx context.Context) *apperr.InternalE
 
 	if _, err := r.Collection.UpdateMany(ctx, filter, update); err != nil {
 		logger.Error("Error trying to close expired auctions", err)
-		return apperr.NewInternalServerError("Error trying to close expired auctions")
+		return apperr.NewInternalServerError("error trying to close expired auctions")
 	}
 
 	return nil

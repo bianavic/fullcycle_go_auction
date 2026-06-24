@@ -37,11 +37,11 @@ func (ur *Repository) FindByID(
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			logger.Error(fmt.Sprintf("User not found with this id = %s", userID), err)
 			return nil, apperr.NewNotFoundError(
-				fmt.Sprintf("User not found with this id = %s", userID))
+				fmt.Sprintf("user not found with id %s", userID))
 		}
 
 		logger.Error("Error trying to find user by userID", err)
-		return nil, apperr.NewInternalServerError("Error trying to find user by userID")
+		return nil, apperr.NewInternalServerError("error trying to find user by userID")
 	}
 
 	user := &user.User{

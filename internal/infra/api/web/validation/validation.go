@@ -28,7 +28,7 @@ func init() {
 
 func ValidateUUID(value, field string) *httperr.RestErr {
 	if err := uuid.Validate(value); err != nil {
-		return httperr.NewBadRequestError("Invalid fields", httperr.Causes{
+		return httperr.NewBadRequestError("invalid fields", httperr.Causes{
 			Field:   field,
 			Message: "Invalid UUID value",
 		})
@@ -38,7 +38,7 @@ func ValidateUUID(value, field string) *httperr.RestErr {
 
 func ValidateErr(validationErr error) *httperr.RestErr {
 	if typeErr, ok := errors.AsType[*json.UnmarshalTypeError](validationErr); ok {
-		return httperr.NewBadRequestError("Invalid type error", httperr.Causes{
+		return httperr.NewBadRequestError("invalid type error", httperr.Causes{
 			Field:   typeErr.Field,
 			Message: "expected type " + typeErr.Type.String(),
 		})
@@ -54,7 +54,7 @@ func ValidateErr(validationErr error) *httperr.RestErr {
 			})
 		}
 
-		return httperr.NewBadRequestError("Invalid field values", errorCauses...)
+		return httperr.NewBadRequestError("invalid field values", errorCauses...)
 	}
-	return httperr.NewBadRequestError("Error trying to convert fields")
+	return httperr.NewBadRequestError("error trying to convert fields")
 }
