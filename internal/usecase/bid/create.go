@@ -37,7 +37,7 @@ type useCase struct {
 	batch []bid.Bid
 }
 
-func New(bidRepository bid.Repository) UseCase {
+func New(ctx context.Context, bidRepository bid.Repository) UseCase {
 	batchInsertInterval := getBatchInsertInterval()
 	maxBatchSize := getMaxBatchSize()
 
@@ -49,7 +49,7 @@ func New(bidRepository bid.Repository) UseCase {
 		bidChannel:          make(chan bid.Bid, maxBatchSize),
 	}
 
-	bidUseCase.triggerCreateRoutine(context.Background())
+	bidUseCase.triggerCreateRoutine(ctx)
 
 	return bidUseCase
 }
@@ -68,21 +68,15 @@ type UseCase interface {
 
 func (uc *useCase) triggerCreateRoutine(ctx context.Context) {
 	go func() {
-		defer close(uc.bidChannel)
-
 		for {
 			select {
-			case bid, ok := <-uc.bidChannel:
-				if !ok {
-					if len(uc.batch) > 0 {
-						if err := uc.BidRepository.Create(ctx, uc.batch); err != nil {
-							logger.Error("error trying to process bid batch list", err)
-						}
-					}
-					return
-				}
-
-				uc.batch = append(uc.batch, bid)
+			case <-ctx.Done():
+				// shutdown ordenado: drena os bids ainda no buffer e persiste o
+				// lote acumulado antes de encerrar a goroutine.
+				uc.drainAndFlush()
+				return
+			case newBid := <-uc.bidChannel:
+				uc.batch = append(uc.batch, newBid)
 
 				if len(uc.batch) >= uc.maxBatchSize {
 					if err := uc.BidRepository.Create(ctx, uc.batch); err != nil {
@@ -115,6 +109,30 @@ func (uc *useCase) triggerCreateRoutine(ctx context.Context) {
 	}()
 }
 
+// drainAndFlush esvazia o buffer do canal e persiste o lote acumulado. Usado no
+// encerramento (ctx cancelado) para não perder bids já enfileirados. Usa um
+// contexto próprio porque o contexto de ciclo de vida já foi cancelado.
+func (uc *useCase) drainAndFlush() {
+	for {
+		select {
+		case newBid := <-uc.bidChannel:
+			uc.batch = append(uc.batch, newBid)
+		default:
+			if len(uc.batch) == 0 {
+				return
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			if err := uc.BidRepository.Create(ctx, uc.batch); err != nil {
+				logger.Error("error flushing bid batch on shutdown", err)
+			}
+			cancel()
+			uc.batch = nil
+			return
+		}
+	}
+}
+
 func (uc *useCase) CreateBid(
 	ctx context.Context,
 	bidInputDTO InputDTO) *apperr.InternalError {
@@ -124,9 +142,16 @@ func (uc *useCase) CreateBid(
 		return err
 	}
 
-	uc.bidChannel <- *newBid
-
-	return nil
+	// Enfileira sem bloquear indefinidamente: se o contexto da requisição for
+	// cancelado (cliente desconectou ou shutdown) enquanto o buffer está cheio,
+	// retorna erro em vez de travar o handler HTTP.
+	select {
+	case uc.bidChannel <- *newBid:
+		return nil
+	case <-ctx.Done():
+		logger.Error("context canceled before enqueueing bid", ctx.Err())
+		return apperr.NewInternalServerError("could not enqueue bid")
+	}
 }
 
 func getBatchInsertInterval() time.Duration {

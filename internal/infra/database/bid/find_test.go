@@ -122,6 +122,7 @@ func TestFindWinningBidByAuctionID(t *testing.T) {
 
 		winner, err := repo.FindWinningByAuctionID(ctx, uuid.NewString())
 		require.NotNil(t, err)
+		require.Equal(t, "not_found", err.Err)
 		require.Nil(t, winner)
 	})
 }

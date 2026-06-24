@@ -35,7 +35,7 @@ type Repository struct {
 func New(ctx context.Context, database *mongo.Database) *Repository {
 	return &Repository{
 		Collection:      database.Collection("auctions"),
-		auctionInterval: getAuctionInterval(),
+		auctionInterval: config.AuctionInterval(),
 		auctionMutex:    &sync.Mutex{},
 		closerCtx:       ctx,
 	}
@@ -150,10 +150,6 @@ func (r *Repository) closeExpiredAuctions(ctx context.Context) *apperr.InternalE
 	}
 
 	return nil
-}
-
-func getAuctionInterval() time.Duration {
-	return config.ParseDuration("AUCTION_INTERVAL", 5*time.Minute)
 }
 
 func getCloserInterval() time.Duration {

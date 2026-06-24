@@ -2,6 +2,7 @@ package bid
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/entity/bid"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -53,6 +55,12 @@ func (bd *Repository) FindWinningByAuctionID(
 	var doc document
 	opts := options.FindOne().SetSort(bson.D{{Key: "amount", Value: -1}})
 	if err := bd.Collection.FindOne(ctx, filter, opts).Decode(&doc); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			logger.Error(fmt.Sprintf("No winning bid found for auctionID %s", auctionID), err)
+			return nil, apperr.NewNotFoundError(
+				fmt.Sprintf("no winning bid found for auction %s", auctionID))
+		}
+
 		logger.Error("Error trying to find the auction winner", err)
 		return nil, apperr.NewInternalServerError("error trying to find the auction winner")
 	}

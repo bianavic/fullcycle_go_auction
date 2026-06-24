@@ -68,7 +68,7 @@ func TestCreateBid_FlushBehavior(t *testing.T) {
 		t.Setenv("BATCH_INSERT_INTERVAL", "1m")
 
 		repo := &fakeBidRepo{}
-		uc := biduc.New(repo)
+		uc := biduc.New(context.Background(), repo)
 		ctx := context.Background()
 
 		auctionID := uuid.NewString()
@@ -91,7 +91,7 @@ func TestCreateBid_FlushBehavior(t *testing.T) {
 		t.Setenv("BATCH_INSERT_INTERVAL", "100ms")
 
 		repo := &fakeBidRepo{}
-		uc := biduc.New(repo)
+		uc := biduc.New(context.Background(), repo)
 		ctx := context.Background()
 
 		require.Nil(t, uc.CreateBid(ctx, biduc.InputDTO{
@@ -102,7 +102,7 @@ func TestCreateBid_FlushBehavior(t *testing.T) {
 		}, 2*time.Second, 20*time.Millisecond, "expected timer-based flush of 1 bid")
 	})
 
-	// Valida o fix: o flush por timer só ocorre quando há bids acumulados (if len(batch) > 0
+	// Valida o flush por timer: só ocorre quando há bids acumulados (if len(batch) > 0
 	// em create.go). A asserção é sobre o número de chamadas (batches()), não totalBids():
 	// um lote vazio contribui 0 bids de qualquer forma, então só a contagem de chamadas
 	// distingue o código com guard do código sem guard.
@@ -111,7 +111,7 @@ func TestCreateBid_FlushBehavior(t *testing.T) {
 		t.Setenv("BATCH_INSERT_INTERVAL", "50ms")
 
 		repo := &fakeBidRepo{}
-		_ = biduc.New(repo) // inicia a goroutine; nenhum bid enfileirado
+		_ = biduc.New(context.Background(), repo) // inicia a goroutine; nenhum bid enfileirado
 
 		require.Never(t, func() bool {
 			return len(repo.batches()) > 0
@@ -127,7 +127,7 @@ func TestCreateBid_Validation(t *testing.T) {
 	t.Run("invalid user ID returns bad request", func(t *testing.T) {
 		t.Parallel()
 		repo := &fakeBidRepo{}
-		uc := biduc.New(repo)
+		uc := biduc.New(context.Background(), repo)
 
 		err := uc.CreateBid(context.Background(), biduc.InputDTO{
 			UserID: "not-a-uuid", AuctionID: uuid.NewString(), Amount: 100})
@@ -139,7 +139,7 @@ func TestCreateBid_Validation(t *testing.T) {
 	t.Run("negative amount returns bad request", func(t *testing.T) {
 		t.Parallel()
 		repo := &fakeBidRepo{}
-		uc := biduc.New(repo)
+		uc := biduc.New(context.Background(), repo)
 
 		err := uc.CreateBid(context.Background(), biduc.InputDTO{
 			UserID: uuid.NewString(), AuctionID: uuid.NewString(), Amount: -5})
@@ -147,4 +147,76 @@ func TestCreateBid_Validation(t *testing.T) {
 		require.Equal(t, "bad_request", err.Err)
 		require.Equal(t, 0, repo.totalBids())
 	})
+}
+
+func validBidInput() biduc.InputDTO {
+	return biduc.InputDTO{
+		UserID:    uuid.NewString(),
+		AuctionID: uuid.NewString(),
+		Amount:    100,
+	}
+}
+
+// blockingBidRepo trava em Create até release ser fechado, sinalizando started
+// na primeira chamada. Permite encher o buffer do canal de forma determinística.
+type blockingBidRepo struct {
+	fakeBidRepo
+	started   chan struct{}
+	release   chan struct{}
+	startOnce sync.Once
+}
+
+func (b *blockingBidRepo) Create(ctx context.Context, bids []bid.Bid) *apperr.InternalError {
+	b.startOnce.Do(func() { close(b.started) })
+	<-b.release
+	return nil
+}
+
+// Valida o enqueue não-bloqueante: com o buffer cheio e o consumer preso,
+// um contexto cancelado faz CreateBid retornar erro em vez de travar.
+func TestCreateBid_ContextCancellation(t *testing.T) {
+	t.Setenv("MAX_BATCH_SIZE", "1")
+	t.Setenv("BATCH_INSERT_INTERVAL", "1m")
+
+	repo := &blockingBidRepo{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	uc := biduc.New(context.Background(), repo)
+
+	// 1º bid: consumer recebe, atinge maxBatchSize=1 e chama Create (bloqueia).
+	require.Nil(t, uc.CreateBid(context.Background(), validBidInput()))
+	<-repo.started
+
+	// 2º bid: ocupa o buffer (cap = maxBatchSize = 1); consumer ainda preso.
+	require.Nil(t, uc.CreateBid(context.Background(), validBidInput()))
+
+	// 3º bid: buffer cheio e consumer bloqueado -> o send travaria.
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := uc.CreateBid(canceledCtx, validBidInput())
+	require.NotNil(t, err)
+	require.Equal(t, "internal_server_error", err.Err)
+
+	close(repo.release)
+}
+
+// Valida o shutdown ordenado: ao cancelar o contexto de ciclo de vida, a goroutine
+// de batch drena o buffer e persiste os bids pendentes antes de encerrar.
+func TestCreateBid_FlushesOnShutdown(t *testing.T) {
+	t.Setenv("MAX_BATCH_SIZE", "10") // não atinge o flush por tamanho
+	t.Setenv("BATCH_INSERT_INTERVAL", "1m")
+
+	repo := &fakeBidRepo{}
+	ctx, cancel := context.WithCancel(context.Background())
+	uc := biduc.New(ctx, repo)
+
+	require.Nil(t, uc.CreateBid(context.Background(), validBidInput()))
+	require.Nil(t, uc.CreateBid(context.Background(), validBidInput()))
+
+	cancel() // dispara o drainAndFlush
+
+	require.Eventually(t, func() bool {
+		return repo.totalBids() == 2
+	}, 2*time.Second, 20*time.Millisecond, "expected pending bids flushed on shutdown")
 }

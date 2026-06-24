@@ -25,7 +25,7 @@ func TestFindBidByAuctionID(t *testing.T) {
 		repo := &fakeBidRepo{findBids: []bid.Bid{
 			{ID: bidID, UserID: userID, AuctionID: auctionID, Amount: 150, Timestamp: ts},
 		}}
-		uc := biduc.New(repo)
+		uc := biduc.New(context.Background(), repo)
 
 		out, err := uc.FindBidByAuctionID(context.Background(), auctionID)
 		require.Nil(t, err)
@@ -39,7 +39,7 @@ func TestFindBidByAuctionID(t *testing.T) {
 
 	t.Run("repository error", func(t *testing.T) {
 		repo := &fakeBidRepo{findErr: apperr.NewInternalServerError("unexpected error")}
-		uc := biduc.New(repo)
+		uc := biduc.New(context.Background(), repo)
 
 		out, err := uc.FindBidByAuctionID(context.Background(), uuid.NewString())
 		require.NotNil(t, err)
@@ -59,7 +59,7 @@ func TestFindWinningBidByAuctionID(t *testing.T) {
 		repo := &fakeBidRepo{winning: &bid.Bid{
 			ID: bidID, UserID: userID, AuctionID: auctionID, Amount: 999, Timestamp: ts,
 		}}
-		uc := biduc.New(repo)
+		uc := biduc.New(context.Background(), repo)
 
 		out, err := uc.FindWinningBidByAuctionID(context.Background(), auctionID)
 		require.Nil(t, err)
@@ -72,7 +72,7 @@ func TestFindWinningBidByAuctionID(t *testing.T) {
 
 	t.Run("repository error", func(t *testing.T) {
 		repo := &fakeBidRepo{winningErr: apperr.NewInternalServerError("unexpected error")}
-		uc := biduc.New(repo)
+		uc := biduc.New(context.Background(), repo)
 
 		out, err := uc.FindWinningBidByAuctionID(context.Background(), uuid.NewString())
 		require.NotNil(t, err)
