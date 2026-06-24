@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"fullcycle-auction_go/configuration/database/mongodb"
 	auctioncontroller "fullcycle-auction_go/internal/infra/api/web/controller/auction"
 	"fullcycle-auction_go/internal/infra/api/web/controller/bid"
 	"fullcycle-auction_go/internal/infra/api/web/controller/user"
 	auctionrepository "fullcycle-auction_go/internal/infra/database/auction"
 	bidrepository "fullcycle-auction_go/internal/infra/database/bid"
+	"fullcycle-auction_go/internal/infra/database/mongodb"
 	userrepository "fullcycle-auction_go/internal/infra/database/user"
 	auctionuc "fullcycle-auction_go/internal/usecase/auction"
 	biduc "fullcycle-auction_go/internal/usecase/bid"
@@ -26,7 +26,7 @@ func main() {
 		log.Println("No .env file found; relying on environment variables")
 	}
 
-	databaseConnection, err := mongodb.NewMongoDBConnection(ctx)
+	databaseConnection, err := mongodb.NewConnection(ctx)
 	if err != nil {
 		log.Fatal(err.Error())
 		return
@@ -50,9 +50,9 @@ func main() {
 }
 
 func initDependencies(ctx context.Context, database *mongo.Database) (
-	userController *user.UserController,
-	bidController *bid.BidController,
-	auctionController *auctioncontroller.AuctionController) {
+	userController *user.Controller,
+	bidController *bid.Controller,
+	auctionController *auctioncontroller.Controller) {
 
 	auctionRepository := auctionrepository.New(ctx, database)
 	auctionRepository.StartAuctionCloser(ctx)
@@ -63,9 +63,8 @@ func initDependencies(ctx context.Context, database *mongo.Database) (
 	userController = user.New(
 		useruc.New(userRepository))
 	auctionController = auctioncontroller.New(
-		ctx,
 		auctionuc.New(auctionRepository, bidRepository))
-	bidController = bid.NewBidController(biduc.New(bidRepository))
+	bidController = bid.New(biduc.New(bidRepository))
 
 	return
 }

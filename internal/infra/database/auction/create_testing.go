@@ -11,15 +11,15 @@ import (
 // InsertAuctionForTest insere um leilão com campos arbitrários diretamente na
 // coleção, sem disparar scheduleAuctionClose nem a validação da entidade. Permite
 // que testes de integração no pacote externo montem cenários (status, categoria,
-// productName) sem acesso à struct interna AuctionMongo.
-func (ar *AuctionRepository) InsertAuctionForTest(
+// productName) sem acesso à struct interna document.
+func (ar *Repository) InsertAuctionForTest(
 	ctx context.Context,
 	id, productName, category, description string,
 	condition auction.ProductCondition,
-	status auction.AuctionStatus,
+	status auction.Status,
 	timestamp int64,
 ) error {
-	auctionMongo := &AuctionMongo{
+	doc := &document{
 		ID:          id,
 		ProductName: productName,
 		Category:    category,
@@ -29,7 +29,7 @@ func (ar *AuctionRepository) InsertAuctionForTest(
 		Timestamp:   timestamp,
 	}
 
-	_, err := ar.Collection.InsertOne(ctx, auctionMongo)
+	_, err := ar.Collection.InsertOne(ctx, doc)
 	return err
 }
 
@@ -37,7 +37,7 @@ func (ar *AuctionRepository) InsertAuctionForTest(
 // diretamente na coleção, sem disparar scheduleAuctionClose. Usado por testes de
 // integração que precisam de um leilão já vencido para exercitar o monitor de
 // fechamento sem depender da goroutine agendada.
-func (ar *AuctionRepository) InsertExpiredAuctionForTest(
+func (ar *Repository) InsertExpiredAuctionForTest(
 	ctx context.Context, id string, pastTimestamp int64) error {
 	return ar.InsertAuctionForTest(ctx, id,
 		"test product", "test category", "test description for integration",

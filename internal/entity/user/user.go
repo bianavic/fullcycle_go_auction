@@ -2,7 +2,7 @@ package user
 
 import (
 	"context"
-	"fullcycle-auction_go/internal/internal_error"
+	"fullcycle-auction_go/internal/apperr"
 )
 
 type User struct {
@@ -10,7 +10,7 @@ type User struct {
 	Name string
 }
 
-type UserRepository interface {
-	FindUserByID(
-		ctx context.Context, userID string) (*User, *internal_error.InternalError)
+type Repository interface {
+	FindByID(
+		ctx context.Context, userID string) (*User, *apperr.InternalError)
 }

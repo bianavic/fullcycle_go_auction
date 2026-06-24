@@ -2,7 +2,7 @@ package auction
 
 import (
 	"context"
-	"fullcycle-auction_go/configuration/rest_err"
+	"fullcycle-auction_go/internal/infra/api/web/httperr"
 	"fullcycle-auction_go/internal/infra/api/web/validation"
 	"fullcycle-auction_go/internal/usecase/auction"
 	"net/http"
@@ -10,18 +10,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type AuctionController struct {
+type Controller struct {
 	auctionUseCase auction.UseCase
 }
 
-func New(ctx context.Context, auctionUseCase auction.UseCase) *AuctionController {
-	return &AuctionController{
+func New(auctionUseCase auction.UseCase) *Controller {
+	return &Controller{
 		auctionUseCase: auctionUseCase,
 	}
 }
 
-func (u *AuctionController) CreateAuction(c *gin.Context) {
-	var auctionInputDTO auction.AuctionInputDTO
+func (u *Controller) CreateAuction(c *gin.Context) {
+	var auctionInputDTO auction.InputDTO
 
 	if err := c.ShouldBindJSON(&auctionInputDTO); err != nil {
 		restErr := validation.ValidateErr(err)
@@ -32,7 +32,7 @@ func (u *AuctionController) CreateAuction(c *gin.Context) {
 
 	err := u.auctionUseCase.CreateAuction(context.Background(), auctionInputDTO)
 	if err != nil {
-		restErr := rest_err.ConvertError(err)
+		restErr := httperr.ConvertError(err)
 
 		c.JSON(restErr.Code, restErr)
 		return

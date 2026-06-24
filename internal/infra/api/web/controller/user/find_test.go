@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/infra/api/web/controller/user"
-	"fullcycle-auction_go/internal/internal_error"
 	useruc "fullcycle-auction_go/internal/usecase/user"
 
 	"github.com/gin-gonic/gin"
@@ -22,17 +22,17 @@ type mockUserUseCase struct {
 }
 
 func (m *mockUserUseCase) FindUserByID(
-	ctx context.Context, id string) (*useruc.UserOutputDTO, *internal_error.InternalError) {
+	ctx context.Context, id string) (*useruc.OutputDTO, *apperr.InternalError) {
 	args := m.Called(ctx, id)
 
-	var out *useruc.UserOutputDTO
+	var out *useruc.OutputDTO
 	if v := args.Get(0); v != nil {
-		out, _ = v.(*useruc.UserOutputDTO)
+		out = v.(*useruc.OutputDTO)
 	}
 
-	var err *internal_error.InternalError
+	var err *apperr.InternalError
 	if v := args.Get(1); v != nil {
-		err, _ = v.(*internal_error.InternalError)
+		err = v.(*apperr.InternalError)
 	}
 
 	return out, err
@@ -70,7 +70,7 @@ func TestFindUserByID(t *testing.T) {
 		id := uuid.NewString()
 		useCase := new(mockUserUseCase)
 		useCase.On("FindUserByID", mock.Anything, id).
-			Return(&useruc.UserOutputDTO{ID: id, Name: "Jane Doe"}, nil)
+			Return(&useruc.OutputDTO{ID: id, Name: "Jane Doe"}, nil)
 		router := setupUserRouter(useCase)
 
 		w := httptest.NewRecorder()
@@ -79,7 +79,7 @@ func TestFindUserByID(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, w.Code)
 
-		var body useruc.UserOutputDTO
+		var body useruc.OutputDTO
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 		require.Equal(t, id, body.ID)
 		require.Equal(t, "Jane Doe", body.Name)
@@ -91,7 +91,7 @@ func TestFindUserByID(t *testing.T) {
 		id := uuid.NewString()
 		useCase := new(mockUserUseCase)
 		useCase.On("FindUserByID", mock.Anything, id).
-			Return(nil, internal_error.NewNotFoundError("user not found"))
+			Return(nil, apperr.NewNotFoundError("user not found"))
 		router := setupUserRouter(useCase)
 
 		w := httptest.NewRecorder()

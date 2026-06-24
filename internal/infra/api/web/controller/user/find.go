@@ -2,40 +2,35 @@ package user
 
 import (
 	"context"
-	"fullcycle-auction_go/configuration/rest_err"
+	"fullcycle-auction_go/internal/infra/api/web/httperr"
+	"fullcycle-auction_go/internal/infra/api/web/validation"
 	"fullcycle-auction_go/internal/usecase/user"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
-type UserController struct {
+type Controller struct {
 	user user.UseCase
 }
 
-func New(userUseCase user.UseCase) *UserController {
-	return &UserController{
+func New(userUseCase user.UseCase) *Controller {
+	return &Controller{
 		user: userUseCase,
 	}
 }
 
-func (u *UserController) FindUserByID(c *gin.Context) {
+func (u *Controller) FindUserByID(c *gin.Context) {
 	userID := c.Param("userId")
 
-	if err := uuid.Validate(userID); err != nil {
-		errRest := rest_err.NewBadRequestError("Invalid fields", rest_err.Causes{
-			Field:   "userId",
-			Message: "Invalid UUID value",
-		})
-
+	if errRest := validation.ValidateUUID(userID, "userId"); errRest != nil {
 		c.JSON(errRest.Code, errRest)
 		return
 	}
 
 	userData, err := u.user.FindUserByID(context.Background(), userID)
 	if err != nil {
-		errRest := rest_err.ConvertError(err)
+		errRest := httperr.ConvertError(err)
 		c.JSON(errRest.Code, errRest)
 		return
 	}

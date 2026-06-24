@@ -2,21 +2,21 @@ package user
 
 import (
 	"context"
+	"fullcycle-auction_go/internal/apperr"
 	"fullcycle-auction_go/internal/entity/user"
-	"fullcycle-auction_go/internal/internal_error"
 )
 
-func New(userRepository user.UserRepository) UseCase {
+func New(userRepository user.Repository) UseCase {
 	return &useCase{
 		userRepository,
 	}
 }
 
 type useCase struct {
-	UserRepository user.UserRepository
+	UserRepository user.Repository
 }
 
-type UserOutputDTO struct {
+type OutputDTO struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
@@ -24,17 +24,17 @@ type UserOutputDTO struct {
 type UseCase interface {
 	FindUserByID(
 		ctx context.Context,
-		id string) (*UserOutputDTO, *internal_error.InternalError)
+		id string) (*OutputDTO, *apperr.InternalError)
 }
 
 func (uc *useCase) FindUserByID(
-	ctx context.Context, id string) (*UserOutputDTO, *internal_error.InternalError) {
-	userEntity, err := uc.UserRepository.FindUserByID(ctx, id)
+	ctx context.Context, id string) (*OutputDTO, *apperr.InternalError) {
+	userEntity, err := uc.UserRepository.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	return &UserOutputDTO{
+	return &OutputDTO{
 		ID:   userEntity.ID,
 		Name: userEntity.Name,
 	}, nil

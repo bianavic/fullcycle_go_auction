@@ -3,17 +3,17 @@ package validation
 import (
 	"encoding/json"
 	"errors"
-	"fullcycle-auction_go/configuration/rest_err"
+	"fullcycle-auction_go/internal/infra/api/web/httperr"
 
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
-	validator_en "github.com/go-playground/validator/v10/translations/en"
+	validatoren "github.com/go-playground/validator/v10/translations/en"
+	"github.com/google/uuid"
 )
 
 var (
-	Validate   = validator.New()
 	translator ut.Translator
 )
 
@@ -22,28 +22,39 @@ func init() {
 		en := en.New()
 		enTransl := ut.New(en, en)
 		translator, _ = enTransl.GetTranslator("en")
-		_ = validator_en.RegisterDefaultTranslations(value, translator)
+		_ = validatoren.RegisterDefaultTranslations(value, translator)
 	}
 }
 
-func ValidateErr(validation_err error) *rest_err.RestErr {
-	var jsonErr *json.UnmarshalTypeError
-	var jsonValidation validator.ValidationErrors
+func ValidateUUID(value, field string) *httperr.RestErr {
+	if err := uuid.Validate(value); err != nil {
+		return httperr.NewBadRequestError("invalid fields", httperr.Causes{
+			Field:   field,
+			Message: "Invalid UUID value",
+		})
+	}
+	return nil
+}
 
-	if errors.As(validation_err, &jsonErr) {
-		return rest_err.NewNotFoundError("Invalid type error")
-	} else if errors.As(validation_err, &jsonValidation) {
-		errorCauses := []rest_err.Causes{}
+func ValidateErr(validationErr error) *httperr.RestErr {
+	if typeErr, ok := errors.AsType[*json.UnmarshalTypeError](validationErr); ok {
+		return httperr.NewBadRequestError("invalid type error", httperr.Causes{
+			Field:   typeErr.Field,
+			Message: "expected type " + typeErr.Type.String(),
+		})
+	}
+
+	if jsonValidation, ok := errors.AsType[validator.ValidationErrors](validationErr); ok {
+		var errorCauses []httperr.Causes
 
 		for _, e := range jsonValidation {
-			errorCauses = append(errorCauses, rest_err.Causes{
+			errorCauses = append(errorCauses, httperr.Causes{
 				Field:   e.Field(),
 				Message: e.Translate(translator),
 			})
 		}
 
-		return rest_err.NewBadRequestError("Invalid field values", errorCauses...)
-	} else {
-		return rest_err.NewBadRequestError("Error trying to convert fields")
+		return httperr.NewBadRequestError("invalid field values", errorCauses...)
 	}
+	return httperr.NewBadRequestError("error trying to convert fields")
 }

@@ -2,19 +2,19 @@ package bid
 
 import (
 	"context"
-	"fullcycle-auction_go/configuration/logger"
+	"fullcycle-auction_go/internal/apperr"
+	"fullcycle-auction_go/internal/config"
 	"fullcycle-auction_go/internal/entity/auction"
 	"fullcycle-auction_go/internal/entity/bid"
 	auctionrepo "fullcycle-auction_go/internal/infra/database/auction"
-	"fullcycle-auction_go/internal/internal_error"
-	"os"
+	"fullcycle-auction_go/internal/observability/logger"
 	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type BidMongo struct {
+type document struct {
 	ID        string  `bson:"_id"`
 	UserID    string  `bson:"user_id"`
 	AuctionID string  `bson:"auction_id"`
@@ -22,20 +22,20 @@ type BidMongo struct {
 	Timestamp int64   `bson:"timestamp"`
 }
 
-type BidRepository struct {
+type Repository struct {
 	Collection            *mongo.Collection
-	AuctionRepository     *auctionrepo.AuctionRepository
+	AuctionRepository     *auctionrepo.Repository
 	auctionInterval       time.Duration
-	auctionStatusMap      map[string]auction.AuctionStatus
+	auctionStatusMap      map[string]auction.Status
 	auctionEndTimeMap     map[string]time.Time
 	auctionStatusMapMutex *sync.Mutex
 	auctionEndTimeMutex   *sync.Mutex
 }
 
-func New(database *mongo.Database, auctionRepository *auctionrepo.AuctionRepository) *BidRepository {
-	return &BidRepository{
+func New(database *mongo.Database, auctionRepository *auctionrepo.Repository) *Repository {
+	return &Repository{
 		auctionInterval:       getAuctionInterval(),
-		auctionStatusMap:      make(map[string]auction.AuctionStatus),
+		auctionStatusMap:      make(map[string]auction.Status),
 		auctionEndTimeMap:     make(map[string]time.Time),
 		auctionStatusMapMutex: &sync.Mutex{},
 		auctionEndTimeMutex:   &sync.Mutex{},
@@ -44,9 +44,9 @@ func New(database *mongo.Database, auctionRepository *auctionrepo.AuctionReposit
 	}
 }
 
-func (bd *BidRepository) CreateBid(
+func (bd *Repository) Create(
 	ctx context.Context,
-	bids []bid.Bid) *internal_error.InternalError {
+	bids []bid.Bid) *apperr.InternalError {
 	var wg sync.WaitGroup
 	for _, b := range bids {
 		wg.Add(1)
@@ -61,7 +61,7 @@ func (bd *BidRepository) CreateBid(
 			auctionEndTime, okEndTime := bd.auctionEndTimeMap[bidValue.AuctionID]
 			bd.auctionEndTimeMutex.Unlock()
 
-			bidMongo := &BidMongo{
+			doc := &document{
 				ID:        bidValue.ID,
 				UserID:    bidValue.UserID,
 				AuctionID: bidValue.AuctionID,
@@ -75,7 +75,7 @@ func (bd *BidRepository) CreateBid(
 					return
 				}
 
-				if _, err := bd.Collection.InsertOne(ctx, bidMongo); err != nil {
+				if _, err := bd.Collection.InsertOne(ctx, doc); err != nil {
 					logger.Error("Error trying to insert bid", err)
 					return
 				}
@@ -83,7 +83,7 @@ func (bd *BidRepository) CreateBid(
 				return
 			}
 
-			found, err := bd.AuctionRepository.FindAuctionByID(ctx, bidValue.AuctionID)
+			found, err := bd.AuctionRepository.FindByID(ctx, bidValue.AuctionID)
 			if err != nil {
 				logger.Error("Error trying to find auction by id", err)
 				return
@@ -100,7 +100,7 @@ func (bd *BidRepository) CreateBid(
 			bd.auctionEndTimeMap[bidValue.AuctionID] = found.Timestamp.Add(bd.auctionInterval)
 			bd.auctionEndTimeMutex.Unlock()
 
-			if _, err := bd.Collection.InsertOne(ctx, bidMongo); err != nil {
+			if _, err := bd.Collection.InsertOne(ctx, doc); err != nil {
 				logger.Error("Error trying to insert bid", err)
 				return
 			}
@@ -111,11 +111,5 @@ func (bd *BidRepository) CreateBid(
 }
 
 func getAuctionInterval() time.Duration {
-	auctionInterval := os.Getenv("AUCTION_INTERVAL")
-	duration, err := time.ParseDuration(auctionInterval)
-	if err != nil {
-		return time.Minute * 5
-	}
-
-	return duration
+	return config.ParseDuration("AUCTION_INTERVAL", 5*time.Minute)
 }

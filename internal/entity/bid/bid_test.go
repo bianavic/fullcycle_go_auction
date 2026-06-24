@@ -27,7 +27,7 @@ func TestCreateBid_Validation(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			b, err := bid.CreateBid(tc.userID, tc.auctionID, tc.amount)
+			b, err := bid.Create(tc.userID, tc.auctionID, tc.amount)
 			if tc.wantErr {
 				require.NotNil(t, err)
 				require.Nil(t, b)

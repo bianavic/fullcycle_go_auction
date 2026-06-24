@@ -8,10 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAuction_Validate cobre os ramos inequívocos de Validate (productName,
-// category e caminho válido). Casos que dependem da precedência booleana entre
-// Description e Condition foram omitidos de propósito: o comportamento atual é um
-// bug marcado com TODO em auction.go e não deve ser travado por testes.
 func TestAuction_Validate(t *testing.T) {
 	cases := []struct {
 		name        string
@@ -24,6 +20,10 @@ func TestAuction_Validate(t *testing.T) {
 		{"all valid", "Clock", "Decor", "A long enough description", auction.New, false},
 		{"product name too short", "C", "Decor", "A long enough description", auction.New, true},
 		{"category too short", "Clock", "De", "A long enough description", auction.New, true},
+		{"description too short", "Clock", "Decor", "Short", auction.New, true},
+		{"invalid condition", "Clock", "Decor", "A long enough description", 0, true},
+		{"valid with used condition", "Clock", "Decor", "A long enough description", auction.Used, false},
+		{"valid with refurbished condition", "Clock", "Decor", "A long enough description", auction.Refurbished, false},
 	}
 
 	for _, tc := range cases {
@@ -53,7 +53,7 @@ func TestCreateAuction(t *testing.T) {
 
 	t.Run("valid input", func(t *testing.T) {
 		t.Parallel()
-		a, err := auction.CreateAuction(
+		a, err := auction.Create(
 			"Clock", "Decor", "A long enough description", auction.New)
 		require.Nil(t, err)
 		require.NotEmpty(t, a.ID)
@@ -62,7 +62,7 @@ func TestCreateAuction(t *testing.T) {
 
 	t.Run("invalid input", func(t *testing.T) {
 		t.Parallel()
-		a, err := auction.CreateAuction(
+		a, err := auction.Create(
 			"C", "Decor", "A long enough description", auction.New)
 		require.NotNil(t, err)
 		require.Nil(t, a)
