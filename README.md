@@ -105,7 +105,7 @@ Configured in `.env` at the project root (loaded by the app and by both containe
 > Values accept any Go duration string (e.g. `20s`, `1m`, `1m30s`). If `AUCTION_INTERVAL` is missing or
 > invalid the app falls back to `5m`; `AUCTION_CLOSER_INTERVAL` falls back to `10s`.
 
-### See the automatic close in action
+### Demonstrating automatic close
 
 With the default `AUCTION_INTERVAL=20s`:
 
@@ -126,7 +126,7 @@ curl "http://localhost:8080/auction?status=0"
 curl http://localhost:8080/auction/<auction-id>
 ```
 
-5. List completed auctions:
+4. List completed auctions:
 ```bash
 curl "http://localhost:8080/auction?status=1"
 ```
