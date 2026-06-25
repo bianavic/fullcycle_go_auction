@@ -20,7 +20,7 @@ func New(userUseCase user.UseCase) *Controller {
 	}
 }
 
-func (u *Controller) FindUserByID(c *gin.Context) {
+func (ctrl *Controller) FindUserByID(c *gin.Context) {
 	userID := c.Param("userId")
 
 	if errRest := validation.ValidateUUID(userID, "userId"); errRest != nil {
@@ -28,7 +28,7 @@ func (u *Controller) FindUserByID(c *gin.Context) {
 		return
 	}
 
-	userData, err := u.user.FindUserByID(context.Background(), userID)
+	userData, err := ctrl.user.FindUserByID(context.Background(), userID)
 	if err != nil {
 		errRest := httperr.ConvertError(err)
 		c.JSON(errRest.Code, errRest)

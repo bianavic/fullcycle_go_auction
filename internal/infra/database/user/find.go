@@ -27,12 +27,12 @@ func New(database *mongo.Database) *Repository {
 	}
 }
 
-func (ur *Repository) FindByID(
+func (r *Repository) FindByID(
 	ctx context.Context, userID string) (*user.User, *apperr.InternalError) {
 	filter := bson.M{"_id": userID}
 
 	var doc document
-	err := ur.Collection.FindOne(ctx, filter).Decode(&doc)
+	err := r.Collection.FindOne(ctx, filter).Decode(&doc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			logger.Error(fmt.Sprintf("User not found with this id = %s", userID), err)

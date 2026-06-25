@@ -27,8 +27,7 @@ type Repository struct {
 	Collection      *mongo.Collection
 	auctionInterval time.Duration
 	auctionMutex    *sync.Mutex
-	// closerCtx limita o tempo de vida das goroutines de fechamento agendado.
-	// Quando cancelado, scheduleAuctionClose retorna sem disparar o update.
+	// closerCtx controla o ciclo de vida das goroutines de fechamento agendado.
 	closerCtx context.Context
 }
 
@@ -59,18 +58,14 @@ func (r *Repository) Create(
 		return apperr.NewInternalServerError("error trying to insert auction")
 	}
 
-	// agenda o fechamento pontual deste leilão após o intervalo configurado.
-	// A goroutine sobrevive ao ciclo de vida do request HTTP.
+	// Executa o fechamento de forma independente do ciclo de vida da requisição.
 	go r.scheduleAuctionClose(doc.ID)
 
 	return nil
 }
 
-// scheduleAuctionClose aguarda o intervalo do leilão e, ao expirar, dispara o
-// fechamento. Roda em uma goroutine independente do request que criou o leilão.
-// O timer respeita closerCtx para permitir shutdown ordenado: se o contexto
-// for cancelado antes do intervalo, a goroutine retorna sem fechar o leilão
-// (a varredura do StartAuctionCloser cobre o caso após restart).
+// scheduleAuctionClose durante o shutdown, encerra sem fechar o leilão.
+// Fechamentos perdidos são recuperados por StartAuctionCloser.
 func (r *Repository) scheduleAuctionClose(auctionID string) {
 	timer := time.NewTimer(r.auctionInterval)
 	defer timer.Stop()
@@ -86,11 +81,8 @@ func (r *Repository) scheduleAuctionClose(auctionID string) {
 	}
 }
 
-// closeAuction atualiza o status do leilão para Completed. O filtro por
-// status=Active garante idempotência (não reabre nem reescreve um leilão já
-// fechado) e evita corridas entre a goroutine pontual e o monitor em background.
-// Usa um contexto próprio, pois o contexto do request original já pode ter sido
-// cancelado quando o fechamento ocorre.
+// closeAuction usa um novo contexto porque o contexto da requisição pode
+// já ter sido cancelado. O filtro por status mantém a operação idempotente.
 func (r *Repository) closeAuction(auctionID string) *apperr.InternalError {
 	r.auctionMutex.Lock()
 	defer r.auctionMutex.Unlock()
@@ -109,10 +101,8 @@ func (r *Repository) closeAuction(auctionID string) *apperr.InternalError {
 	return nil
 }
 
-// StartAuctionCloser inicia um monitor que varre o banco periodicamente em busca
-// de leilões vencidos ainda marcados como Active e os fecha em lote. Funciona como
-// rede de segurança para leilões cujo fechamento agendado foi perdido (por exemplo,
-// após um restart do processo). O monitor encerra quando o contexto é cancelado.
+// StartAuctionCloser recupera leilões expirados que não foram fechados pelo
+// agendamento, como após um reinício da aplicação.
 func (r *Repository) StartAuctionCloser(ctx context.Context) {
 	ticker := time.NewTicker(getCloserInterval())
 
@@ -129,9 +119,8 @@ func (r *Repository) StartAuctionCloser(ctx context.Context) {
 	}()
 }
 
-// closeExpiredAuctions fecha todos os leilões Active cujo tempo já expirou
-// (timestamp + auctionInterval < agora). O filtro por status=Active mantém a
-// operação idempotente e segura quando concorre com o fechamento agendado.
+// closeExpiredAuctions o filtro por status mantém a operação idempotente
+// durante execuções concorrentes.
 func (r *Repository) closeExpiredAuctions(ctx context.Context) *apperr.InternalError {
 	r.auctionMutex.Lock()
 	defer r.auctionMutex.Unlock()

@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (u *Controller) FindBidByAuctionID(c *gin.Context) {
+func (ctrl *Controller) FindBidByAuctionID(c *gin.Context) {
 	auctionID := c.Param("auctionId")
 
 	if errRest := validation.ValidateUUID(auctionID, "auctionId"); errRest != nil {
@@ -17,7 +17,7 @@ func (u *Controller) FindBidByAuctionID(c *gin.Context) {
 		return
 	}
 
-	bidOutputList, err := u.bid.FindBidByAuctionID(context.Background(), auctionID)
+	bidOutputList, err := ctrl.bid.FindBidByAuctionID(context.Background(), auctionID)
 	if err != nil {
 		errRest := httperr.ConvertError(err)
 		c.JSON(errRest.Code, errRest)

@@ -14,12 +14,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func (ar *Repository) FindByID(
+func (r *Repository) FindByID(
 	ctx context.Context, id string) (*auction.Auction, *apperr.InternalError) {
 	filter := bson.M{"_id": id}
 
 	var doc document
-	if err := ar.Collection.FindOne(ctx, filter).Decode(&doc); err != nil {
+	if err := r.Collection.FindOne(ctx, filter).Decode(&doc); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			logger.Error(fmt.Sprintf("Auction not found with id = %s", id), err)
 			return nil, apperr.NewNotFoundError(
@@ -41,7 +41,7 @@ func (ar *Repository) FindByID(
 	}, nil
 }
 
-func (repo *Repository) FindAll(
+func (r *Repository) FindAll(
 	ctx context.Context,
 	status auction.Status,
 	category string,
@@ -60,7 +60,7 @@ func (repo *Repository) FindAll(
 		filter["product_name"] = primitive.Regex{Pattern: productName, Options: "i"}
 	}
 
-	cursor, err := repo.Collection.Find(ctx, filter)
+	cursor, err := r.Collection.Find(ctx, filter)
 	if err != nil {
 		logger.Error("Error finding auctions", err)
 		return nil, apperr.NewInternalServerError("error finding auctions")

@@ -105,21 +105,36 @@ Configured in `.env` at the project root (loaded by the app and by both containe
 > Values accept any Go duration string (e.g. `20s`, `1m`, `1m30s`). If `AUCTION_INTERVAL` is missing or
 > invalid the app falls back to `5m`; `AUCTION_CLOSER_INTERVAL` falls back to `10s`.
 
-### See the automatic close in action
+### Demonstrating automatic close
 
 With the default `AUCTION_INTERVAL=20s`:
 
+1. Create an auction:
 ```bash
-# 1. Create an auction
 curl -X POST http://localhost:8080/auction \
   -H 'Content-Type: application/json' \
   -d '{"product_name":"Vintage Clock","category":"Decor","description":"A beautiful vintage wall clock from 1950","condition":1}'
+```
 
-# 2. List active auctions and copy the "id"
+2. List active auctions and copy the "id":
+```bash
 curl "http://localhost:8080/auction?status=0"
+```
 
-# 3. Wait > 20s, then fetch the auction by id — "status" is now 1 (Completed)
+3. Wait > 20s, then fetch the auction by id — "status" is now 1 (Completed):
+```bash
 curl http://localhost:8080/auction/<auction-id>
+```
+
+4. List completed auctions:
+```bash
+curl "http://localhost:8080/auction?status=1"
+```
+
+## MongoDB:
+```bash
+docker exec -it mongodb mongosh -u admin -p admin --authenticationDatabase admin \
+    --eval 'db.getSiblingDB("auctions").auctions.find({}, {product_name:1, status:1})'
 ```
 
 ## API Documentation
