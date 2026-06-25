@@ -8,11 +8,9 @@ import (
 	"fullcycle-auction_go/internal/entity/auction"
 )
 
-// InsertAuctionForTest insere um leilão com campos arbitrários diretamente na
-// coleção, sem disparar scheduleAuctionClose nem a validação da entidade. Permite
-// que testes de integração no pacote externo montem cenários (status, categoria,
-// productName) sem acesso à struct interna document.
-func (ar *Repository) InsertAuctionForTest(
+// InsertAuctionForTest insere um leilão diretamente na coleção, ignorando validações e
+// rotinas de fechamento.
+func (r *Repository) InsertAuctionForTest(
 	ctx context.Context,
 	id, productName, category, description string,
 	condition auction.ProductCondition,
@@ -29,17 +27,15 @@ func (ar *Repository) InsertAuctionForTest(
 		Timestamp:   timestamp,
 	}
 
-	_, err := ar.Collection.InsertOne(ctx, doc)
+	_, err := r.Collection.InsertOne(ctx, doc)
 	return err
 }
 
-// InsertExpiredAuctionForTest insere um leilão Active com timestamp no passado
-// diretamente na coleção, sem disparar scheduleAuctionClose. Usado por testes de
-// integração que precisam de um leilão já vencido para exercitar o monitor de
-// fechamento sem depender da goroutine agendada.
-func (ar *Repository) InsertExpiredAuctionForTest(
+// InsertExpiredAuctionForTest insere um leilão expirado para testes do monitor
+// de fechamento.
+func (r *Repository) InsertExpiredAuctionForTest(
 	ctx context.Context, id string, pastTimestamp int64) error {
-	return ar.InsertAuctionForTest(ctx, id,
+	return r.InsertAuctionForTest(ctx, id,
 		"test product", "test category", "test description for integration",
 		auction.New, auction.Active, pastTimestamp)
 }

@@ -71,8 +71,7 @@ func (uc *useCase) triggerCreateRoutine(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				// shutdown ordenado: drena os bids ainda no buffer e persiste o
-				// lote acumulado antes de encerrar a goroutine.
+				// Garante que bids pendentes sejam persistidos antes do shutdown.
 				uc.drainAndFlush()
 				return
 			case newBid := <-uc.bidChannel:
@@ -84,10 +83,8 @@ func (uc *useCase) triggerCreateRoutine(ctx context.Context) {
 					}
 
 					uc.batch = nil
-					// Stop e drain antes do Reset: o timer pode ter expirado e deixado
-					// um valor pendente em C, o que faria a próxima iteração entrar no
-					// case do timer imediatamente. O guard len(uc.batch) > 0 cobre o
-					// sintoma, mas o pattern correto é stop+drain+reset.
+					// Interrompe e drena o timer antes do Reset para
+					// descartar um disparo pendente.
 					if !uc.timer.Stop() {
 						select {
 						case <-uc.timer.C:
@@ -109,9 +106,8 @@ func (uc *useCase) triggerCreateRoutine(ctx context.Context) {
 	}()
 }
 
-// drainAndFlush esvazia o buffer do canal e persiste o lote acumulado. Usado no
-// encerramento (ctx cancelado) para não perder bids já enfileirados. Usa um
-// contexto próprio porque o contexto de ciclo de vida já foi cancelado.
+// drainAndFlush usa um novo contexto porque
+// o contexto de ciclo de vida já foi cancelado.
 func (uc *useCase) drainAndFlush() {
 	for {
 		select {
@@ -142,9 +138,7 @@ func (uc *useCase) CreateBid(
 		return err
 	}
 
-	// Enfileira sem bloquear indefinidamente: se o contexto da requisição for
-	// cancelado (cliente desconectou ou shutdown) enquanto o buffer está cheio,
-	// retorna erro em vez de travar o handler HTTP.
+	// Evita bloqueio indefinido quando a requisição é cancelada.
 	select {
 	case uc.bidChannel <- *newBid:
 		return nil

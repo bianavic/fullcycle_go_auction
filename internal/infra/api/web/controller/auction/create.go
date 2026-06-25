@@ -20,7 +20,7 @@ func New(auctionUseCase auction.UseCase) *Controller {
 	}
 }
 
-func (u *Controller) CreateAuction(c *gin.Context) {
+func (ctrl *Controller) CreateAuction(c *gin.Context) {
 	var auctionInputDTO auction.InputDTO
 
 	if err := c.ShouldBindJSON(&auctionInputDTO); err != nil {
@@ -30,7 +30,7 @@ func (u *Controller) CreateAuction(c *gin.Context) {
 		return
 	}
 
-	err := u.auctionUseCase.CreateAuction(context.Background(), auctionInputDTO)
+	err := ctrl.auctionUseCase.CreateAuction(context.Background(), auctionInputDTO)
 	if err != nil {
 		restErr := httperr.ConvertError(err)
 

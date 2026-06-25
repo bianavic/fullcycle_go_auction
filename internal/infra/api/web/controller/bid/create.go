@@ -19,7 +19,7 @@ func New(bidUseCase biduc.UseCase) *Controller {
 	}
 }
 
-func (u *Controller) CreateBid(c *gin.Context) {
+func (ctrl *Controller) CreateBid(c *gin.Context) {
 	var bidInputDTO biduc.InputDTO
 
 	if err := c.ShouldBindJSON(&bidInputDTO); err != nil {
@@ -29,7 +29,7 @@ func (u *Controller) CreateBid(c *gin.Context) {
 		return
 	}
 
-	err := u.bid.CreateBid(c.Request.Context(), bidInputDTO)
+	err := ctrl.bid.CreateBid(c.Request.Context(), bidInputDTO)
 	if err != nil {
 		restErr := httperr.ConvertError(err)
 
