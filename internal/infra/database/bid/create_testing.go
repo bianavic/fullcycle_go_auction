@@ -6,9 +6,7 @@ import (
 	"context"
 )
 
-// InsertBidForTest insere um bid diretamente na coleção, sem passar pela
-// validação de status do leilão feita por CreateBid. Usado por testes de
-// integração que precisam de bids pré-existentes para exercitar as buscas.
+// InsertBidForTest insere um bid diretamente na coleção para montagem de cenários de teste.
 func (bd *Repository) InsertBidForTest(
 	ctx context.Context, id, userID, auctionID string, amount float64, timestamp int64) error {
 	doc := &document{

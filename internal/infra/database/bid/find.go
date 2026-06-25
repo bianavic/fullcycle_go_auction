@@ -14,11 +14,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (bd *Repository) FindByAuctionID(
+func (r *Repository) FindByAuctionID(
 	ctx context.Context, auctionID string) ([]bid.Bid, *apperr.InternalError) {
 	filter := bson.M{"auction_id": auctionID}
 
-	cursor, err := bd.Collection.Find(ctx, filter)
+	cursor, err := r.Collection.Find(ctx, filter)
 	if err != nil {
 		logger.Error(
 			fmt.Sprintf("Error trying to find bids by auctionID %s", auctionID), err)
@@ -48,13 +48,13 @@ func (bd *Repository) FindByAuctionID(
 	return bids, nil
 }
 
-func (bd *Repository) FindWinningByAuctionID(
+func (r *Repository) FindWinningByAuctionID(
 	ctx context.Context, auctionID string) (*bid.Bid, *apperr.InternalError) {
 	filter := bson.M{"auction_id": auctionID}
 
 	var doc document
 	opts := options.FindOne().SetSort(bson.D{{Key: "amount", Value: -1}})
-	if err := bd.Collection.FindOne(ctx, filter, opts).Decode(&doc); err != nil {
+	if err := r.Collection.FindOne(ctx, filter, opts).Decode(&doc); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			logger.Error(fmt.Sprintf("No winning bid found for auctionID %s", auctionID), err)
 			return nil, apperr.NewNotFoundError(

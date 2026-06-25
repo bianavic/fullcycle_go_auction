@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (u *Controller) FindAuctionByID(c *gin.Context) {
+func (ctrl *Controller) FindAuctionByID(c *gin.Context) {
 	auctionID := c.Param("auctionId")
 
 	if errRest := validation.ValidateUUID(auctionID, "auctionId"); errRest != nil {
@@ -19,7 +19,7 @@ func (u *Controller) FindAuctionByID(c *gin.Context) {
 		return
 	}
 
-	auctionData, err := u.auctionUseCase.FindAuctionByID(context.Background(), auctionID)
+	auctionData, err := ctrl.auctionUseCase.FindAuctionByID(context.Background(), auctionID)
 	if err != nil {
 		errRest := httperr.ConvertError(err)
 		c.JSON(errRest.Code, errRest)
@@ -29,7 +29,7 @@ func (u *Controller) FindAuctionByID(c *gin.Context) {
 	c.JSON(http.StatusOK, auctionData)
 }
 
-func (u *Controller) FindAuctions(c *gin.Context) {
+func (ctrl *Controller) FindAuctions(c *gin.Context) {
 	status := c.Query("status")
 	category := c.Query("category")
 	productName := c.Query("productName")
@@ -41,7 +41,7 @@ func (u *Controller) FindAuctions(c *gin.Context) {
 		return
 	}
 
-	auctions, err := u.auctionUseCase.FindAuctions(context.Background(),
+	auctions, err := ctrl.auctionUseCase.FindAuctions(context.Background(),
 		auction.AuctionStatus(statusNumber), category, productName)
 	if err != nil {
 		errRest := httperr.ConvertError(err)
@@ -52,7 +52,7 @@ func (u *Controller) FindAuctions(c *gin.Context) {
 	c.JSON(http.StatusOK, auctions)
 }
 
-func (u *Controller) FindWinningBidByAuctionID(c *gin.Context) {
+func (ctrl *Controller) FindWinningBidByAuctionID(c *gin.Context) {
 	auctionID := c.Param("auctionId")
 
 	if errRest := validation.ValidateUUID(auctionID, "auctionId"); errRest != nil {
@@ -60,7 +60,7 @@ func (u *Controller) FindWinningBidByAuctionID(c *gin.Context) {
 		return
 	}
 
-	auctionData, err := u.auctionUseCase.FindWinningBidByAuctionID(context.Background(), auctionID)
+	auctionData, err := ctrl.auctionUseCase.FindWinningBidByAuctionID(context.Background(), auctionID)
 	if err != nil {
 		errRest := httperr.ConvertError(err)
 		c.JSON(errRest.Code, errRest)

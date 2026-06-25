@@ -6,7 +6,7 @@ import (
 	"context"
 )
 
-func (ur *Repository) InsertUserForTest(ctx context.Context, id, name string) error {
-	_, err := ur.Collection.InsertOne(ctx, &document{ID: id, Name: name})
+func (r *Repository) InsertUserForTest(ctx context.Context, id, name string) error {
+	_, err := r.Collection.InsertOne(ctx, &document{ID: id, Name: name})
 	return err
 }

@@ -44,7 +44,7 @@ func New(database *mongo.Database, auctionRepository *auctionrepo.Repository) *R
 	}
 }
 
-func (bd *Repository) Create(
+func (r *Repository) Create(
 	ctx context.Context,
 	bids []bid.Bid) *apperr.InternalError {
 	var wg sync.WaitGroup
@@ -53,13 +53,13 @@ func (bd *Repository) Create(
 		go func(bidValue bid.Bid) {
 			defer wg.Done()
 
-			bd.auctionStatusMapMutex.Lock()
-			auctionStatus, okStatus := bd.auctionStatusMap[bidValue.AuctionID]
-			bd.auctionStatusMapMutex.Unlock()
+			r.auctionStatusMapMutex.Lock()
+			auctionStatus, okStatus := r.auctionStatusMap[bidValue.AuctionID]
+			r.auctionStatusMapMutex.Unlock()
 
-			bd.auctionEndTimeMutex.Lock()
-			auctionEndTime, okEndTime := bd.auctionEndTimeMap[bidValue.AuctionID]
-			bd.auctionEndTimeMutex.Unlock()
+			r.auctionEndTimeMutex.Lock()
+			auctionEndTime, okEndTime := r.auctionEndTimeMap[bidValue.AuctionID]
+			r.auctionEndTimeMutex.Unlock()
 
 			doc := &document{
 				ID:        bidValue.ID,
@@ -75,7 +75,7 @@ func (bd *Repository) Create(
 					return
 				}
 
-				if _, err := bd.Collection.InsertOne(ctx, doc); err != nil {
+				if _, err := r.Collection.InsertOne(ctx, doc); err != nil {
 					logger.Error("Error trying to insert bid", err)
 					return
 				}
@@ -83,7 +83,7 @@ func (bd *Repository) Create(
 				return
 			}
 
-			found, err := bd.AuctionRepository.FindByID(ctx, bidValue.AuctionID)
+			found, err := r.AuctionRepository.FindByID(ctx, bidValue.AuctionID)
 			if err != nil {
 				logger.Error("Error trying to find auction by id", err)
 				return
@@ -92,15 +92,15 @@ func (bd *Repository) Create(
 				return
 			}
 
-			bd.auctionStatusMapMutex.Lock()
-			bd.auctionStatusMap[bidValue.AuctionID] = found.Status
-			bd.auctionStatusMapMutex.Unlock()
+			r.auctionStatusMapMutex.Lock()
+			r.auctionStatusMap[bidValue.AuctionID] = found.Status
+			r.auctionStatusMapMutex.Unlock()
 
-			bd.auctionEndTimeMutex.Lock()
-			bd.auctionEndTimeMap[bidValue.AuctionID] = found.Timestamp.Add(bd.auctionInterval)
-			bd.auctionEndTimeMutex.Unlock()
+			r.auctionEndTimeMutex.Lock()
+			r.auctionEndTimeMap[bidValue.AuctionID] = found.Timestamp.Add(r.auctionInterval)
+			r.auctionEndTimeMutex.Unlock()
 
-			if _, err := bd.Collection.InsertOne(ctx, doc); err != nil {
+			if _, err := r.Collection.InsertOne(ctx, doc); err != nil {
 				logger.Error("Error trying to insert bid", err)
 				return
 			}
