@@ -75,9 +75,12 @@ The automatic-close logic lives in `internal/infra/database/auction/create.go`.
 
 ## Quick Start
 
-Create your local `.env` from the template, then bring up the API and MongoDB with Docker Compose:
+Clone the repository, create your local `.env` from the template, then bring up the API and MongoDB
+with Docker Compose:
 
 ```bash
+git clone https://github.com/bianavic/fullcycle_go_auction.git
+cd fullcycle_go_auction
 cp .env.example .env
 docker compose up --build
 ```
@@ -91,16 +94,16 @@ The API will be available at `http://localhost:8080`.
 
 Configured in `.env` at the project root (loaded by the app and by both containers):
 
-| Variable | Example | Description |
-|----------|---------|-------------|
-| `AUCTION_INTERVAL` | `20s` | Auction duration. After this, an auction is automatically closed. |
-| `AUCTION_CLOSER_INTERVAL` | `10s` | How often the background monitor sweeps for expired auctions. |
-| `BATCH_INSERT_INTERVAL` | `20s` | Bid batch flush interval. |
-| `MAX_BATCH_SIZE` | `4` | Maximum bids per batch. |
-| `MONGO_INITDB_ROOT_USERNAME` | `admin` | MongoDB root user (created on first run). |
-| `MONGO_INITDB_ROOT_PASSWORD` | `admin` | MongoDB root password. |
-| `MONGODB_URL` | `mongodb://admin:admin@mongodb:27017/auctions?authSource=admin` | Connection string. |
-| `MONGODB_DB` | `auctions` | Database name. |
+| Variable                     | Example                                                         | Description                                                       |
+|------------------------------|-----------------------------------------------------------------|-------------------------------------------------------------------|
+| `AUCTION_INTERVAL`           | `20s`                                                           | Auction duration. After this, an auction is automatically closed. |
+| `AUCTION_CLOSER_INTERVAL`    | `10s`                                                           | How often the background monitor sweeps for expired auctions.     |
+| `BATCH_INSERT_INTERVAL`      | `20s`                                                           | Bid batch flush interval.                                         |
+| `MAX_BATCH_SIZE`             | `4`                                                             | Maximum bids per batch.                                           |
+| `MONGO_INITDB_ROOT_USERNAME` | `admin`                                                         | MongoDB root user (created on first run).                         |
+| `MONGO_INITDB_ROOT_PASSWORD` | `admin`                                                         | MongoDB root password.                                            |
+| `MONGODB_URL`                | `mongodb://admin:admin@mongodb:27017/auctions?authSource=admin` | Connection string.                                                |
+| `MONGODB_DB`                 | `auctions`                                                      | Database name.                                                    |
 
 > Values accept any Go duration string (e.g. `20s`, `1m`, `1m30s`). If `AUCTION_INTERVAL` is missing or
 > invalid the app falls back to `5m`; `AUCTION_CLOSER_INTERVAL` falls back to `10s`.
@@ -110,28 +113,31 @@ Configured in `.env` at the project root (loaded by the app and by both containe
 With the default `AUCTION_INTERVAL=20s`:
 
 1. Create an auction:
-```bash
-curl -X POST http://localhost:8080/auction \
-  -H 'Content-Type: application/json' \
-  -d '{"product_name":"Vintage Clock","category":"Decor","description":"A beautiful vintage wall clock from 1950","condition":1}'
-```
+   ```bash
+   curl -X POST http://localhost:8080/auction \
+     -H 'Content-Type: application/json' \
+     -d '{"product_name":"Vintage Clock","category":"Decor","description":"A beautiful vintage wall clock from 1950","condition":1}'
+   ```
 
 2. List active auctions and copy the "id":
-```bash
-curl "http://localhost:8080/auction?status=0"
-```
+   ```bash
+   curl "http://localhost:8080/auction?status=0"
+   ```
 
 3. Wait > 20s, then fetch the auction by id — "status" is now 1 (Completed):
-```bash
-curl http://localhost:8080/auction/<auction-id>
-```
+   ```bash
+   curl http://localhost:8080/auction/<auction-id>
+   ```
 
 4. List completed auctions:
-```bash
-curl "http://localhost:8080/auction?status=1"
-```
+   ```bash
+   curl "http://localhost:8080/auction?status=1"
+   ```
 
-## MongoDB:
+### Inspecting MongoDB
+
+Inspect auction status directly in the database:
+
 ```bash
 docker exec -it mongodb mongosh -u admin -p admin --authenticationDatabase admin \
     --eval 'db.getSiblingDB("auctions").auctions.find({}, {product_name:1, status:1})'
@@ -139,15 +145,15 @@ docker exec -it mongodb mongosh -u admin -p admin --authenticationDatabase admin
 
 ## API Documentation
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/auction` | Create an auction. Body: `product_name`, `category`, `description`, `condition` (`0`, `1` or `2`). |
-| `GET` | `/auction?status=0` | List auctions by status (`0` = Active, `1` = Completed). `status` is required. |
-| `GET` | `/auction/:auctionId` | Fetch an auction by id. |
-| `GET` | `/auction/winner/:auctionId` | Fetch the winning bid for an auction. |
-| `POST` | `/bid` | Place a bid. Body: `user_id`, `auction_id`, `amount`. |
-| `GET` | `/bid/:auctionId` | List bids for an auction. |
-| `GET` | `/user/:userId` | Fetch a user by id. |
+| Method | Path                         | Description                                                                                        |
+|--------|------------------------------|----------------------------------------------------------------------------------------------------|
+| `POST` | `/auction`                   | Create an auction. Body: `product_name`, `category`, `description`, `condition` (`0`, `1` or `2`). |
+| `GET`  | `/auction?status=0`          | List auctions by status (`0` = Active, `1` = Completed). `status` is required.                     |
+| `GET`  | `/auction/:auctionId`        | Fetch an auction by id.                                                                            |
+| `GET`  | `/auction/winner/:auctionId` | Fetch the winning bid for an auction.                                                              |
+| `POST` | `/bid`                       | Place a bid. Body: `user_id`, `auction_id`, `amount`.                                              |
+| `GET`  | `/bid/:auctionId`            | List bids for an auction.                                                                          |
+| `GET`  | `/user/:userId`              | Fetch a user by id.                                                                                |
 
 `AuctionStatus`: `0 = Active`, `1 = Completed`. `ProductCondition`: `1 = New`, `2 = Used`, `3 = Refurbished`.
 
@@ -221,4 +227,5 @@ docker compose down -v         # also remove the MongoDB data volume
 
 ## License
 
-This project is licensed under the MIT License.
+This project was developed for educational purposes as part of the FullCycle program
+(Pós-Graduação).
