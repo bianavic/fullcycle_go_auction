@@ -49,7 +49,7 @@ func (m *mockAuctionUseCase) FindAuctionByID(
 }
 
 func (m *mockAuctionUseCase) FindAuctions(
-	ctx context.Context, status auction.AuctionStatus, category, productName string,
+	ctx context.Context, status *auction.AuctionStatus, category, productName string,
 ) ([]auction.OutputDTO, *apperr.InternalError) {
 	args := m.Called(ctx, status, category, productName)
 
@@ -231,24 +231,43 @@ func TestFindAuctions(t *testing.T) {
 		useCase.AssertNotCalled(t, "FindAuctions", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	})
 
-	t.Run("empty status returns bad request", func(t *testing.T) {
+	t.Run("out of range status returns bad request", func(t *testing.T) {
 		t.Parallel()
-		// sem ?status= -> strconv.Atoi("") falha antes de chamar o use case.
 		useCase := new(mockAuctionUseCase)
 		router := setupAuctionRouter(useCase)
 
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/auctions", nil)
+		req := httptest.NewRequest(http.MethodGet, "/auctions?status=7", nil)
 		router.ServeHTTP(w, req)
 
 		require.Equal(t, http.StatusBadRequest, w.Code)
 		useCase.AssertNotCalled(t, "FindAuctions", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	})
 
-	t.Run("valid status returns OK", func(t *testing.T) {
+	// Sem ?status= o endpoint lista leilões de qualquer status, em vez de rejeitar
+	// a requisição por não conseguir converter uma string vazia.
+	t.Run("empty status lists every auction", func(t *testing.T) {
 		t.Parallel()
 		useCase := new(mockAuctionUseCase)
-		useCase.On("FindAuctions", mock.Anything, auction.AuctionStatus(0), "", "").
+		useCase.On("FindAuctions", mock.Anything, (*auction.AuctionStatus)(nil), "", "").
+			Return([]auction.OutputDTO{{ID: uuid.NewString()}}, nil)
+		router := setupAuctionRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auctions", nil)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		useCase.AssertExpectations(t)
+	})
+
+	// status=0 (Active) precisa chegar ao use case como filtro efetivo: antes do fix
+	// o zero era indistinguível de "sem filtro" e a listagem devolvia tudo.
+	t.Run("active status is forwarded as a filter", func(t *testing.T) {
+		t.Parallel()
+		active := auction.AuctionStatus(0)
+		useCase := new(mockAuctionUseCase)
+		useCase.On("FindAuctions", mock.Anything, &active, "", "").
 			Return([]auction.OutputDTO{{ID: uuid.NewString()}}, nil)
 		router := setupAuctionRouter(useCase)
 

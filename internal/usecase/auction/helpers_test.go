@@ -13,8 +13,9 @@ type fakeAuctionRepo struct {
 	byID    *auction.Auction
 	byIDErr *apperr.InternalError
 
-	list    []auction.Auction
-	listErr *apperr.InternalError
+	list       []auction.Auction
+	listErr    *apperr.InternalError
+	lastStatus *auction.Status
 }
 
 type fakeBidRepo struct {

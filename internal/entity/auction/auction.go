@@ -70,9 +70,10 @@ type Repository interface {
 		ctx context.Context,
 		auction *Auction) *apperr.InternalError
 
+	// FindAll com status nil retorna leilões de qualquer status.
 	FindAll(
 		ctx context.Context,
-		status Status,
+		status *Status,
 		category, productName string) ([]Auction, *apperr.InternalError)
 
 	FindByID(

@@ -26,3 +26,21 @@ func (ctrl *Controller) FindBidByAuctionID(c *gin.Context) {
 
 	c.JSON(http.StatusOK, bidOutputList)
 }
+
+func (ctrl *Controller) FindWinningBidByAuctionID(c *gin.Context) {
+	auctionID := c.Param("auctionId")
+
+	if errRest := validation.ValidateUUID(auctionID, "auctionId"); errRest != nil {
+		c.JSON(errRest.Code, errRest)
+		return
+	}
+
+	bidOutput, err := ctrl.bid.FindWinningBidByAuctionID(context.Background(), auctionID)
+	if err != nil {
+		errRest := httperr.ConvertError(err)
+		c.JSON(errRest.Code, errRest)
+		return
+	}
+
+	c.JSON(http.StatusOK, bidOutput)
+}

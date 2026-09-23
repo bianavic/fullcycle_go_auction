@@ -40,20 +40,22 @@ safe under concurrency.
 - **MongoDB** — persistence (official `mongo-driver`)
 - **Uber Zap** — structured logging
 - **go-playground/validator v10** — request validation
-- **Docker / Docker Compose** — local environment
+- **Docker / Docker Compose** — local environment and dockerized test runs
 - **Testcontainers for Go** — ephemeral MongoDB for integration tests
 
 ## Project Structure
 
 ```
-cmd/auction/                entrypoint (main.go), manual dependency wiring
+cmd/auction/                entrypoint (main.go): wiring, HTTP server, graceful shutdown
 internal/
+  app/                      BuildDependencies: assembles repositories, use cases and controllers
   apperr/                   application error types
   config/                   env parsing
   entity/                   domain entities (auction, bid, user)
   usecase/                  application use cases (auction, bid, user)
   infra/
     api/web/
+      router.go             Gin route registration, shared by main.go and the E2E test
       controller/           Gin controllers (auction, bid, user)
       httperr/              HTTP error responses
       validation/           request validation
@@ -136,40 +138,66 @@ With the default `AUCTION_INTERVAL=20s`:
 
 ### Inspecting MongoDB
 
-Inspect auction status directly in the database:
+Inspect auction status directly in the database (`status: 0` = Active, `status: 1` = Completed):
 
 ```bash
 docker exec -it mongodb mongosh -u admin -p admin --authenticationDatabase admin \
     --eval 'db.getSiblingDB("auctions").auctions.find({}, {product_name:1, status:1})'
 ```
 
+There is no endpoint to create users — seed one directly in MongoDB:
+
+```bash
+docker exec -it mongodb mongosh -u admin -p admin --authenticationDatabase admin \
+    --eval 'db.getSiblingDB("auctions").users.insertOne({_id:"11111111-1111-1111-1111-111111111111", name:"Jane Doe"})'
+```
+
 ## API Documentation
 
-| Method | Path                         | Description                                                                                        |
-|--------|------------------------------|----------------------------------------------------------------------------------------------------|
-| `POST` | `/auction`                   | Create an auction. Body: `product_name`, `category`, `description`, `condition` (`0`, `1` or `2`). |
-| `GET`  | `/auction?status=0`          | List auctions by status (`0` = Active, `1` = Completed). `status` is required.                     |
-| `GET`  | `/auction/:auctionId`        | Fetch an auction by id.                                                                            |
-| `GET`  | `/auction/winner/:auctionId` | Fetch the winning bid for an auction.                                                              |
-| `POST` | `/bid`                       | Place a bid. Body: `user_id`, `auction_id`, `amount`.                                              |
-| `GET`  | `/bid/:auctionId`            | List bids for an auction.                                                                          |
-| `GET`  | `/user/:userId`              | Fetch a user by id.                                                                                |
+| Method | Path                         | Description                                                                                         |
+|--------|------------------------------|-----------------------------------------------------------------------------------------------------|
+| `GET`  | `/health`                    | Liveness probe. Returns `{"status":"ok"}`.                                                          |
+| `POST` | `/auction`                   | Create an auction. Body: `product_name`, `category`, `description`, `condition` (`1`, `2` or `3`).  |
+| `GET`  | `/auction`                   | List auctions. Optional filters: `status`, `category`, `productName`. Without `status`, returns all. |
+| `GET`  | `/auction/:auctionId`        | Fetch an auction by id.                                                                             |
+| `GET`  | `/auction/winner/:auctionId` | Fetch an auction together with its winning bid.                                                     |
+| `POST` | `/bid`                       | Place a bid. Body: `user_id`, `auction_id`, `amount`.                                               |
+| `GET`  | `/bid/:auctionId`            | List bids for an auction.                                                                           |
+| `GET`  | `/bid/winner/:auctionId`     | Fetch the winning bid for an auction.                                                               |
+| `GET`  | `/user/:userId`              | Fetch a user by id.                                                                                 |
 
 `AuctionStatus`: `0 = Active`, `1 = Completed`. `ProductCondition`: `1 = New`, `2 = Used`, `3 = Refurbished`.
 
+There is no endpoint to create users — seed one directly in MongoDB to place bids (see
+[Inspecting MongoDB](#inspecting-mongodb) above).
+
 ## Running Tests
 
-Run unit tests (no external dependencies):
+Run the full suite (unit + integration) entirely through Docker Compose — no local Go installation
+required:
+
+```bash
+docker compose run --rm test
+```
+
+This satisfies the challenge's requirement to *"utilizar docker/docker-compose para podermos realizar os
+testes da sua aplicação"*: the `test` service in `docker-compose.yml` runs a `golang:1.26.4` container with
+the repository mounted in, and executes both:
 
 ```bash
 go test -race ./...
-```
-
-Run integration tests (requires a running Docker daemon — Testcontainers pulls `mongo:7` automatically):
-
-```bash
 go test -race -tags integration ./...
 ```
+
+The integration tests use [Testcontainers for Go](https://golang.testcontainers.org/) to launch a real,
+ephemeral `mongo:7` container per test. Since Testcontainers itself needs to talk to a Docker daemon, the
+`test` service mounts the host's `/var/run/docker.sock` — the container's `go test` process then asks the
+*host* Docker daemon to start sibling `mongo:7` containers, so the whole suite runs without any external
+setup beyond Docker itself.
+
+> If you have Go 1.26+ installed locally, you can instead run either `go test` command directly on the
+> host (the integration tests still need a running Docker daemon for Testcontainers). `docker compose run`
+> is the path that requires nothing but Docker.
 
 The integration suite covers:
 
@@ -186,6 +214,9 @@ The integration suite covers:
 - **Concurrent closers are idempotent** — `TestCreateAuction_ConcurrentClosers_Idempotent`: when the
   scheduled closer and the background monitor race to close the same auction, the final status is
   `Completed` without oscillation.
+- **End-to-end HTTP close** — `TestAuctionClosesAutomatically` (`internal/infra/api/web`): an auction
+  created through the real HTTP router (routing, binding, validation, use case, repository) closes on its
+  own after `AUCTION_INTERVAL`, with no manual intervention.
 
 ## Service Management
 
@@ -194,6 +225,7 @@ docker compose up --build      # build and start (foreground)
 docker compose up --build -d   # build and start (detached)
 docker compose logs -f app     # follow application logs
 docker compose ps              # list services
+docker compose run --rm test   # run the full test suite (see Running Tests)
 docker compose down            # stop and remove containers/network
 docker compose down -v         # also remove the MongoDB data volume
 ```
@@ -213,8 +245,13 @@ docker compose down -v         # also remove the MongoDB data volume
   `StartAuctionCloser` / `closeExpiredAuctions` (background monitor), complemented by the per-auction
   `scheduleAuctionClose` / `closeAuction`.
 - [x] A test validating that closing happens automatically — integration test suite with Testcontainers,
-  covering scheduled close, background monitor, idempotency, context cancellation, and concurrency.
-- [x] Documentation on how to run in dev + Docker/Docker Compose — this README.
+  covering scheduled close, background monitor, idempotency, context cancellation, concurrency, and a
+  full HTTP end-to-end run.
+- [x] Documentation explaining how to run the project in a dev environment — this README
+  ([Quick Start](#quick-start)).
+- [x] Docker/Docker Compose used to run the application's tests — `docker compose run --rm test`
+  (see [Running Tests](#running-tests)) runs the entire suite in a container, with no local Go install
+  required.
 
 ### Beyond the base
 
