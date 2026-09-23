@@ -23,8 +23,21 @@ services:
     networks:
       - localNetwork
 
+  test:
+    image: golang:1.26.4
+    working_dir: /app
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - .env
+    command: sh -c "go test -race ./... && go test -race -tags integration ./..."
+
 volumes:
   mongo-data:
+    driver: local
+  go-mod-cache:
     driver: local
 
 networks:

@@ -3,25 +3,16 @@ package main
 import (
 	"context"
 	"errors"
-	auctioncontroller "fullcycle-auction_go/internal/infra/api/web/controller/auction"
-	"fullcycle-auction_go/internal/infra/api/web/controller/bid"
-	"fullcycle-auction_go/internal/infra/api/web/controller/user"
-	auctionrepository "fullcycle-auction_go/internal/infra/database/auction"
-	bidrepository "fullcycle-auction_go/internal/infra/database/bid"
+	"fullcycle-auction_go/internal/app"
+	"fullcycle-auction_go/internal/infra/api/web"
 	"fullcycle-auction_go/internal/infra/database/mongodb"
-	userrepository "fullcycle-auction_go/internal/infra/database/user"
-	auctionuc "fullcycle-auction_go/internal/usecase/auction"
-	biduc "fullcycle-auction_go/internal/usecase/bid"
-	useruc "fullcycle-auction_go/internal/usecase/user"
 	"log"
 	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func main() {
@@ -40,21 +31,8 @@ func main() {
 		return
 	}
 
-	router := gin.Default()
-
-	userController, bidController, auctionsController := initDependencies(ctx, databaseConnection)
-
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
-	router.GET("/auction", auctionsController.FindAuctions)
-	router.GET("/auction/:auctionId", auctionsController.FindAuctionByID)
-	router.POST("/auction", auctionsController.CreateAuction)
-	router.GET("/auction/winner/:auctionId", auctionsController.FindWinningBidByAuctionID)
-	router.POST("/bid", bidController.CreateBid)
-	router.GET("/bid/:auctionId", bidController.FindBidByAuctionID)
-	router.GET("/bid/winner/:auctionId", bidController.FindWinningBidByAuctionID)
-	router.GET("/user/:userId", userController.FindUserByID)
+	userController, bidController, auctionsController := app.BuildDependencies(ctx, databaseConnection)
+	router := web.NewRouter(userController, bidController, auctionsController)
 
 	server := &http.Server{Addr: ":8080", Handler: router}
 
@@ -75,24 +53,4 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("server forced to shutdown: %v", err)
 	}
-}
-
-func initDependencies(ctx context.Context, database *mongo.Database) (
-	userController *user.Controller,
-	bidController *bid.Controller,
-	auctionController *auctioncontroller.Controller) {
-
-	auctionRepository := auctionrepository.New(ctx, database)
-	auctionRepository.StartAuctionCloser(ctx)
-
-	bidRepository := bidrepository.New(database, auctionRepository)
-	userRepository := userrepository.New(database)
-
-	userController = user.New(
-		useruc.New(userRepository))
-	auctionController = auctioncontroller.New(
-		auctionuc.New(auctionRepository, bidRepository))
-	bidController = bid.New(biduc.New(ctx, bidRepository))
-
-	return
 }
