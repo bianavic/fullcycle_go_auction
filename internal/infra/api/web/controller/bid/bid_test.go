@@ -74,7 +74,61 @@ func setupBidRouter(uc bid.UseCase) *gin.Engine {
 	c := bidcontroller.New(uc)
 	r.POST("/bids", c.CreateBid)
 	r.GET("/bids/:auctionId", c.FindBidByAuctionID)
+	r.GET("/bids/winner/:auctionId", c.FindWinningBidByAuctionID)
 	return r
+}
+
+func TestFindWinningBidByAuctionID(t *testing.T) {
+	t.Parallel()
+
+	t.Run("invalid UUID returns bad request", func(t *testing.T) {
+		t.Parallel()
+		useCase := new(mockBidUseCase)
+		router := setupBidRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/bids/winner/not-a-uuid", nil)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		useCase.AssertNotCalled(t, "FindWinningBidByAuctionID", mock.Anything, mock.Anything)
+	})
+
+	t.Run("returns the winning bid", func(t *testing.T) {
+		t.Parallel()
+		auctionID := uuid.NewString()
+		useCase := new(mockBidUseCase)
+		useCase.On("FindWinningBidByAuctionID", mock.Anything, auctionID).
+			Return(&bid.OutputDTO{ID: uuid.NewString(), AuctionID: auctionID, Amount: 250}, nil)
+		router := setupBidRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/bids/winner/"+auctionID, nil)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+
+		var out bid.OutputDTO
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &out))
+		require.Equal(t, float64(250), out.Amount)
+		useCase.AssertExpectations(t)
+	})
+
+	t.Run("use case error is propagated", func(t *testing.T) {
+		t.Parallel()
+		auctionID := uuid.NewString()
+		useCase := new(mockBidUseCase)
+		useCase.On("FindWinningBidByAuctionID", mock.Anything, auctionID).
+			Return(nil, apperr.NewNotFoundError("no winning bid"))
+		router := setupBidRouter(useCase)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/bids/winner/"+auctionID, nil)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusNotFound, w.Code)
+		useCase.AssertExpectations(t)
+	})
 }
 
 func TestCreateBid(t *testing.T) {

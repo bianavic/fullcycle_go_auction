@@ -11,6 +11,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	activeStatus    = 0
+	completedStatus = 1
+)
+
 func (ctrl *Controller) FindAuctionByID(c *gin.Context) {
 	auctionID := c.Param("auctionId")
 
@@ -34,15 +39,22 @@ func (ctrl *Controller) FindAuctions(c *gin.Context) {
 	category := c.Query("category")
 	productName := c.Query("productName")
 
-	statusNumber, conversionError := strconv.Atoi(status)
-	if conversionError != nil {
-		errRest := httperr.NewBadRequestError("error trying to validate auction status param")
-		c.JSON(errRest.Code, errRest)
-		return
+	// Sem o parâmetro status, lista leilões de qualquer status.
+	var statusFilter *auction.AuctionStatus
+	if status != "" {
+		statusNumber, conversionError := strconv.Atoi(status)
+		if conversionError != nil || (statusNumber != activeStatus && statusNumber != completedStatus) {
+			errRest := httperr.NewBadRequestError("error trying to validate auction status param")
+			c.JSON(errRest.Code, errRest)
+			return
+		}
+
+		parsed := auction.AuctionStatus(statusNumber)
+		statusFilter = &parsed
 	}
 
 	auctions, err := ctrl.auctionUseCase.FindAuctions(context.Background(),
-		auction.AuctionStatus(statusNumber), category, productName)
+		statusFilter, category, productName)
 	if err != nil {
 		errRest := httperr.ConvertError(err)
 		c.JSON(errRest.Code, errRest)

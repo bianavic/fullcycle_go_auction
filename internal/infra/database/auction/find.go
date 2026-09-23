@@ -43,13 +43,13 @@ func (r *Repository) FindByID(
 
 func (r *Repository) FindAll(
 	ctx context.Context,
-	status auction.Status,
+	status *auction.Status,
 	category string,
 	productName string) ([]auction.Auction, *apperr.InternalError) {
 	filter := bson.M{}
 
-	if status != 0 {
-		filter["status"] = status
+	if status != nil {
+		filter["status"] = *status
 	}
 
 	if category != "" {

@@ -13,7 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func (f *fakeAuctionRepo) FindAll(ctx context.Context, status auction.Status, category, productName string) ([]auction.Auction, *apperr.InternalError) {
+func (f *fakeAuctionRepo) FindAll(ctx context.Context, status *auction.Status, category, productName string) ([]auction.Auction, *apperr.InternalError) {
+	f.lastStatus = status
 	return f.list, f.listErr
 }
 
@@ -73,9 +74,31 @@ func TestFindAuctions(t *testing.T) {
 		}}
 		uc := auctionuc.New(auctionRepo, &fakeBidRepo{})
 
-		out, err := uc.FindAuctions(context.Background(), 0, "", "")
+		out, err := uc.FindAuctions(context.Background(), nil, "", "")
 		require.Nil(t, err)
 		require.Len(t, out, 2)
+	})
+
+	t.Run("nil status is forwarded as nil to the repository", func(t *testing.T) {
+		t.Parallel()
+		auctionRepo := &fakeAuctionRepo{}
+		uc := auctionuc.New(auctionRepo, &fakeBidRepo{})
+
+		_, err := uc.FindAuctions(context.Background(), nil, "", "")
+		require.Nil(t, err)
+		require.Nil(t, auctionRepo.lastStatus)
+	})
+
+	t.Run("active status is forwarded to the repository", func(t *testing.T) {
+		t.Parallel()
+		auctionRepo := &fakeAuctionRepo{}
+		uc := auctionuc.New(auctionRepo, &fakeBidRepo{})
+
+		active := auctionuc.AuctionStatus(auction.Active)
+		_, err := uc.FindAuctions(context.Background(), &active, "", "")
+		require.Nil(t, err)
+		require.NotNil(t, auctionRepo.lastStatus)
+		require.Equal(t, auction.Active, *auctionRepo.lastStatus)
 	})
 
 	t.Run("repository error", func(t *testing.T) {
@@ -83,7 +106,7 @@ func TestFindAuctions(t *testing.T) {
 		auctionRepo := &fakeAuctionRepo{listErr: apperr.NewInternalServerError("unexpected error")}
 		uc := auctionuc.New(auctionRepo, &fakeBidRepo{})
 
-		out, err := uc.FindAuctions(context.Background(), 0, "", "")
+		out, err := uc.FindAuctions(context.Background(), nil, "", "")
 		require.NotNil(t, err)
 		require.Nil(t, out)
 	})

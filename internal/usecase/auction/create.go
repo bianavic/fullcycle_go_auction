@@ -13,7 +13,7 @@ type InputDTO struct {
 	ProductName string           `json:"product_name" binding:"required,min=1"`
 	Category    string           `json:"category" binding:"required,min=2"`
 	Description string           `json:"description" binding:"required,min=10,max=200"`
-	Condition   ProductCondition `json:"condition" binding:"oneof=0 1 2"`
+	Condition   ProductCondition `json:"condition" binding:"oneof=1 2 3"`
 }
 
 type OutputDTO struct {
@@ -49,9 +49,10 @@ type UseCase interface {
 	FindAuctionByID(
 		ctx context.Context, id string) (*OutputDTO, *apperr.InternalError)
 
+	// FindAuctions com status nil retorna leilões de qualquer status.
 	FindAuctions(
 		ctx context.Context,
-		status AuctionStatus,
+		status *AuctionStatus,
 		category, productName string) ([]OutputDTO, *apperr.InternalError)
 
 	FindWinningBidByAuctionID(

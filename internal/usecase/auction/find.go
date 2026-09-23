@@ -33,10 +33,16 @@ func (uc *useCase) FindAuctionByID(
 
 func (uc *useCase) FindAuctions(
 	ctx context.Context,
-	status AuctionStatus,
+	status *AuctionStatus,
 	category, productName string) ([]OutputDTO, *apperr.InternalError) {
+	var entityStatus *auction.Status
+	if status != nil {
+		converted := auction.Status(*status)
+		entityStatus = &converted
+	}
+
 	auctionEntities, err := uc.auctionRepository.FindAll(
-		ctx, auction.Status(status), category, productName)
+		ctx, entityStatus, category, productName)
 	if err != nil {
 		return nil, err
 	}

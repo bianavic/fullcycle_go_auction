@@ -52,8 +52,7 @@ func TestFindAuctionByID(t *testing.T) {
 func TestFindAuctions(t *testing.T) {
 	t.Parallel()
 
-	// Como Active == 0 e o filtro só é aplicado quando status != 0, apenas o filtro
-	// por Completed é seletivo.
+	// O filtro de status é opcional (ponteiro), então Active (== 0) também é seletivo.
 	t.Run("by status", func(t *testing.T) {
 		t.Parallel()
 		db := setupMongo(t)
@@ -70,10 +69,17 @@ func TestFindAuctions(t *testing.T) {
 			"Completed Item", "Cat", "a completed auction for integration",
 			auction.New, auction.Completed, ts))
 
-		completed, err := repo.FindAll(ctx, auction.Completed, "", "")
+		completedFilter := auction.Completed
+		completed, err := repo.FindAll(ctx, &completedFilter, "", "")
 		require.Nil(t, err)
 		require.Len(t, completed, 1)
 		require.Equal(t, completedID, completed[0].ID)
+
+		activeFilter := auction.Active
+		active, err := repo.FindAll(ctx, &activeFilter, "", "")
+		require.Nil(t, err)
+		require.Len(t, active, 1)
+		require.Equal(t, activeID, active[0].ID)
 	})
 
 	t.Run("by category", func(t *testing.T) {
@@ -91,7 +97,7 @@ func TestFindAuctions(t *testing.T) {
 			"Vintage Clock", "Decor", "a decor auction for integration",
 			auction.New, auction.Active, ts))
 
-		result, err := repo.FindAll(ctx, 0, "Art", "")
+		result, err := repo.FindAll(ctx, nil, "Art", "")
 		require.Nil(t, err)
 		require.Len(t, result, 1)
 		require.Equal(t, artID, result[0].ID)
@@ -115,7 +121,7 @@ func TestFindAuctions(t *testing.T) {
 			"Oil Painting", "Art", "a painting auction for integration",
 			auction.New, auction.Active, ts))
 
-		result, err := repo.FindAll(ctx, 0, "", "clock")
+		result, err := repo.FindAll(ctx, nil, "", "clock")
 		require.Nil(t, err)
 		require.Len(t, result, 1)
 		require.Equal(t, clockID, result[0].ID)
@@ -134,7 +140,7 @@ func TestFindAuctions(t *testing.T) {
 				auction.New, auction.Active, ts))
 		}
 
-		result, err := repo.FindAll(ctx, 0, "", "")
+		result, err := repo.FindAll(ctx, nil, "", "")
 		require.Nil(t, err)
 		require.Len(t, result, 3)
 	})

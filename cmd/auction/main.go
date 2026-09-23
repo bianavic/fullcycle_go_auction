@@ -44,12 +44,16 @@ func main() {
 
 	userController, bidController, auctionsController := initDependencies(ctx, databaseConnection)
 
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 	router.GET("/auction", auctionsController.FindAuctions)
 	router.GET("/auction/:auctionId", auctionsController.FindAuctionByID)
 	router.POST("/auction", auctionsController.CreateAuction)
 	router.GET("/auction/winner/:auctionId", auctionsController.FindWinningBidByAuctionID)
 	router.POST("/bid", bidController.CreateBid)
 	router.GET("/bid/:auctionId", bidController.FindBidByAuctionID)
+	router.GET("/bid/winner/:auctionId", bidController.FindWinningBidByAuctionID)
 	router.GET("/user/:userId", userController.FindUserByID)
 
 	server := &http.Server{Addr: ":8080", Handler: router}
